@@ -6,6 +6,7 @@ with open(data_path, 'r') as f:
     data = json.load(f)
 
 def clean_data(text):
+    #TODO: T_V_ -> TV
     text = text.replace('{vocalsound}', '')
     text = text.replace('{disfmarker}', '')
     text = text.replace('a_m_i_', 'ami')
@@ -17,6 +18,7 @@ def clean_data(text):
     text = text.replace('{gap}', '')
     return text
 
+#TODO multiple json files case
 def extract_text_from_json(json_data):
     data = []
     for turn, meeting in enumerate(json_data['meeting_transcripts']):
