@@ -1,0 +1,3 @@
+[submodule "atlas"]
+	path = atlas
+	url = https://github.com/facebookresearch/atlas.git
