@@ -1,3 +1,6 @@
 [submodule "atlas"]
 	path = atlas
 	url = https://github.com/gong7788/atlas.git
+[submodule "langchain"]
+	path = langchain
+	url = https://github.com/gong7788/langchain.git
