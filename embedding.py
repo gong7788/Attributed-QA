@@ -15,15 +15,15 @@ def split(document) -> Document:
     split_documents = text_splitter.split_documents(document)
     return split_documents
 
-def embedding(documents) -> FAISS:
+def embedding(documents, embedding_model='sentence-transformers/gtr-t5-base') -> FAISS:
     #load embeddings
-    embeddings = HuggingFaceEmbeddings(model_name = 'sentence-transformers/gtr-t5-base')
+    embeddings = HuggingFaceEmbeddings(model_name = embedding_model)
     db = FAISS.from_documents(documents, embeddings)
     return db
 
-def load_db():
+def load_db(embeddings):
     new_db = FAISS.load_local("data/faiss_index", embeddings)
-    return 
+    return new_db
 
 if __name__ == 'main':
     print('Testing...')
