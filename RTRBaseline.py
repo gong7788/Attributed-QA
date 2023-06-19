@@ -7,6 +7,7 @@ from langchain.docstore.document import Document
 import pandas as pd
 import embedding
 import evaluation
+import QAModel
 from typing import Dict, List
 
 ######################global variables######################
@@ -22,6 +23,12 @@ cs = 500
 c_overlap = 0
 #embedding model
 embedding_model = 'sentence-transformers/gtr-t5-base'
+#qa model
+qa_model = 'google/flan-t5-large'
+#chain type
+chain_type = 'stuff'
+#how many retrieved docs to use
+topk = 1
 
 #get doc text
 # doc_text = doc2dial_doc['doc_data'][domain][doc_id]['doc_text']
@@ -74,6 +81,7 @@ def RTRBaseline(qa_set, doc2dial_doc, test=True) -> None:
         #get embeddings
         doc_name = row['doc_id']
         embeddings = HuggingFaceEmbeddings(model_name = embedding_model)
+        #check if using same doc
         if doc_name != last_doc_name:
             #build new index
             document = Document(page_content=doc_text, metadata={"source": row['doc_id']})
@@ -94,11 +102,24 @@ def RTRBaseline(qa_set, doc2dial_doc, test=True) -> None:
 
         ref_list = evaluation.get_ref(row, doc2dial_doc) # true references
 
+        #get answer
+        model_answer = QAModel.answer_from_local_model(row['question'], result_docs, model_name=qa_model, ct=chain_type, topk=1)
+
+        #save answer
+        #FIXME
+        example = {}
+        example['question'] = doc1['question']
+        example['answer'] = model_answer #TODO should be model result?
+        example["passage"] = result_docs[:topk] #TODO only first document. If use all documents, need to change 
+
         if test and index == test_num:
             break
         else:
             continue
     
+    #evaluation process
+    #TODO iterate through answer file
+    #TODO compare em, f1, autoais 
 
 if __name__ == '__main__':
     print('Running RTR Baseline...')
