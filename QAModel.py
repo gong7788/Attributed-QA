@@ -3,6 +3,7 @@ from langchain import HuggingFaceHub
 from langchain.chains.question_answering import load_qa_chain
 from langchain import OpenAI
 
+
 #read api from txt file
 api_path = 'api.txt'
 prompt_flan = "Please answer the following question.\n"
@@ -20,8 +21,18 @@ except FileNotFoundError:
 os.environ["HUGGINGFACEHUB_API_TOKEN"] = hf_api
 os.environ["OPENAI_API_KEY"] = openai_api
 
+def format_prompt_for_flan(question, docs, topk=5) -> str:
+    """
+    format prompt for flan
+    """
+    result_docs_list = docs[:topk]
+    context = '/n'.join([doc.page_content for doc in result_docs_list])
+    
+    sample = "Context: {context}\n\nQuestion: {question}\n\nAnswer:".format(context=context, question=question)
 
-def answer_from_local_model(question, docs, model_name='google/flan-t5-large', ct="stuff", topk=5) -> str:
+    return sample
+
+def answer_from_local_model(question, docs, tokenizer, model, model_name='google/flan-t5-large', ct="stuff", topk=5) -> str:
     """
     get answer from a QA model
     
@@ -35,11 +46,22 @@ def answer_from_local_model(question, docs, model_name='google/flan-t5-large', c
         model_answer: str, answer from the model
 
     """
-    qa_model = HuggingFaceHub(repo_id=model_name)
-    query = prompt_flan + question
-    chain = load_qa_chain(llm=qa_model, chain_type=ct)
-    model_answer = chain.run(input_documents=docs[:topk], question=query, raw_response=True)
-    return model_answer
+    # qa_model = HuggingFaceHub(repo_id=model_name)
+    # query = prompt_flan + question
+    temp = format_prompt_for_flan(question, docs, topk=topk)
+
+    inputs = tokenizer(temp, return_tensors="pt")
+    outputs = model.generate(**inputs)
+    results = tokenizer.batch_decode(outputs, skip_special_tokens=True)
+    #TODO reminder: results is a list of strings 
+    return results[0] 
+    # return results
+
+    # chain = load_qa_chain(llm=model, chain_type=ct)
+    # model_answer = chain.run(input_documents=docs[:topk], question=query, raw_response=True)
+    # print('langchain Results:')
+    # print(model_answer)
+    # return model_answer
 
 def answer_from_openai(question, docs, model_name="text-davinci-003", ct="stuff", max_token=1024, topk=5) -> str:
     """
