@@ -1,4 +1,5 @@
 import os 
+import torch
 from langchain import HuggingFaceHub
 from langchain.chains.question_answering import load_qa_chain
 from langchain import OpenAI
@@ -32,7 +33,7 @@ def format_prompt_for_flan(question, docs, topk=5) -> str:
 
     return sample
 
-def answer_from_local_model(question, docs, tokenizer, model, model_name='google/flan-t5-large', ct="stuff", topk=5) -> str:
+def answer_from_local_model(question, docs, tokenizer, model, model_name='google/flan-t5-large', ct="stuff", topk=5):
     """
     get answer from a QA model
     
@@ -50,7 +51,7 @@ def answer_from_local_model(question, docs, tokenizer, model, model_name='google
     # query = prompt_flan + question
     temp = format_prompt_for_flan(question, docs, topk=topk)
 
-    inputs = tokenizer(temp, return_tensors="pt")
+    inputs = tokenizer(temp, return_tensors="pt", max_length=512, truncation=True)
     outputs = model.generate(**inputs)
     results = tokenizer.batch_decode(outputs, skip_special_tokens=True)
     #TODO reminder: results is a list of strings 

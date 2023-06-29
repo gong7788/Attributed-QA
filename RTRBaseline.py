@@ -1,4 +1,5 @@
 import json
+import os
 from langchain.document_loaders import CSVLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import FAISS
@@ -19,7 +20,7 @@ qa_file_path = 'data/doc2dial/doc2dial_qa_train.csv'
 #load json file
 doc_file_path = 'data/doc2dial/doc2dial_doc.json'
 #chunk size
-cs = 500
+cs = 1000
 #chunk overlap
 c_overlap = 0
 #embedding model
@@ -27,9 +28,11 @@ embedding_model = 'sentence-transformers/gtr-t5-base'
 #qa model
 qa_model = 'google/flan-t5-large'
 #chain type
-chain_type = 'stuff'
+chain_type = 'stuff' #not used now
 #how many retrieved docs to use
 topk = 1
+#failed doc ids
+failed_doc_ids = []
 
 #get doc text
 # doc_text = doc2dial_doc['doc_data'][domain][doc_id]['doc_text']
@@ -65,7 +68,7 @@ def seaerch_doc(doc, db) -> List[Document]:
     return docs
 
 
-def RTRBaseline(qa_set, doc2dial_doc, test=True, test_num=test_num, topk=topk) -> None:
+def RTRBaseline(qa_set, doc2dial_doc, test=True, test_num=test_num, topk=topk, exp_id=None) -> None:
     """
     qa_set: dataframe of qa pairs {'question', 'answer', 'domain', 'doc_id', 'references', 'dial_id'}
     doc2dial_doc: dict (json file)
@@ -79,30 +82,44 @@ def RTRBaseline(qa_set, doc2dial_doc, test=True, test_num=test_num, topk=topk) -
     print('Args: test-mode: {}, topk: {}'.format(test, topk))
     if test:
         print('Test number: {}'.format(test_num))
+    else:
+        print('Experiment id: {}'.format(exp_id))
+        print('Exp Args: embedding model: {}, qa model: {}'.format(embedding_model, qa_model))
 
-    #[ ] replace with flan-t5-large
-    flan_qa_model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-small")
-    qa_tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small")
+
+    if test:
+        flan_qa_model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-small")
+        qa_tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small")
+    else:
+        flan_qa_model = AutoModelForSeq2SeqLM.from_pretrained(qa_model)
+        qa_tokenizer = AutoTokenizer.from_pretrained(qa_model)
 
     last_doc_name = ''
-    result_df = pd.DataFrame(columns=['question', 'answer', 'passage'])
+    result_df = pd.DataFrame(columns=['question', 'answer', 'passage(context)'])
+    total_split_docs = 0
+    cnt = 0
 
     for index, row in qa_set.iterrows():
+        if test:
+            print('Test running: {}'.format(index))
         doc_text = doc2dial_doc['doc_data'][row['domain']][row['doc_id']]['doc_text']
 
         #get embeddings
         doc_name = row['doc_id']
-        embeddings = HuggingFaceEmbeddings(model_name = embedding_model)
+        # embeddings = HuggingFaceEmbeddings(model_name = embedding_model)
         #check if using same doc
         if doc_name != last_doc_name:
             #build new index
             document = Document(page_content=doc_text, metadata={"source": row['doc_id']})
             split_documents = embedding.split([document], cs=cs, co=c_overlap)
+            total_split_docs += len(split_documents)
+            cnt += 1
+
             db = embedding.embedding(split_documents, model=embedding_model)
             last_doc_name = doc_name
             # if not test:
             #     embedding.save_db(db)
-            print('new index created at: ', index)
+            # print('new index created at: ', index)
         # else: 
             #[x] not need load index every time
             #load index
@@ -110,7 +127,13 @@ def RTRBaseline(qa_set, doc2dial_doc, test=True, test_num=test_num, topk=topk) -
             # print('index loaded at: ', index)
 
         #seaerch doc
-        result_docs = seaerch_doc(row, db) # list of retrieved documents
+        try:
+            result_docs = seaerch_doc(row, db) # list of retrieved documents
+        except:
+            # if question is Nan, skip
+            failed_doc_ids.append(index)
+            print('search failed at: ', index)
+            continue
 
         # ref_list = evaluation.get_ref(row, doc2dial_doc) # true references
 
@@ -124,29 +147,70 @@ def RTRBaseline(qa_set, doc2dial_doc, test=True, test_num=test_num, topk=topk) -
                                                        topk=topk)
 
         #save answer
-        # example = {}
-        # example['question'] = row['question']
-        # example['answer'] = model_answer #[ ] should be model result?
-        # result_docs_list = result_docs[:topk]
-        # example['passage'] = '/n'.join([doc.page_content for doc in result_docs_list])
+        example = {}
+        example['question'] = row['question']
+        example['answer'] = model_answer #[x] should be model result?
+        result_docs_list = result_docs[:topk]
+        example['passage'] = '\n'.join([doc.page_content for doc in result_docs_list])
 
-        # result_df.loc[len(result_df)] = [example['question'], example['answer'], example['passage']]
+        result_df.loc[len(result_df)] = [example['question'], example['answer'], example['passage']]
         
         if test and index == test_num:
             break
-        else:
-            continue
+        #save checkpoint
+        elif not test and index % 5000 == 0 and index != 0:
+            checkpoint_dir = 'data/doc2dial/result_{}_cp'.format(exp_id)
+            if not os.path.exists(checkpoint_dir):
+                os.makedirs(checkpoint_dir)
+            checkpoint = os.path.join(checkpoint_dir, 'result_{}_cp{}.csv'.format(exp_id, index))
+            result_df.to_csv(checkpoint, index=False)
+            print('checkpoint saved at: ', index)
+        elif not test and index % 1000 == 0 and index != 0:
+            print('Running at: ', index)
     
-    #write result_df to csv
-    # output_path = 'data/doc2dial/result_{}.csv'.format(topk)
-    # result_df.to_csv(output_path, index=False)
+    # write result_df to csv
+    if test:
+        output_path = 'data/doc2dial/result_test.csv'
+    else:
+        output_path = 'data/doc2dial/result_{}.csv'.format(exp_id)
+    
+    result_df.to_csv(output_path, index=False)
+
+    # result infomation -> txt file
+    filename = 'data/doc2dial/result_info.csv'
+    try:
+        # Try to open the file in append mode
+        new_df = pd.read_csv(filename)
+    except FileNotFoundError:
+        # If the file doesn't exist, create a new DataFrame
+        new_df = pd.DataFrame(columns=['embed model', 'qa_model', 'test mode', 'topk', 'chunk_size', 'chunk_overlap'])
+    print('='*20)
+    print('Total split docs: ', total_split_docs)
+    print('Total split times: ', cnt)
+    print('Avg split docs: ', total_split_docs/cnt)
+
+    new_row = [embedding_model, qa_model, test, topk, cs, c_overlap]
+    new_df.loc[len(new_df)] = new_row
+    new_df.to_csv(filename, index=False)
+    print("Exp info written to the file successfully.")
+
+    if not test:
+        fail_filename = 'data/doc2dial/failed_doc_ids_.csv'
+        with open(fail_filename, 'w') as f:
+            for item in failed_doc_ids:
+                f.write("%s\n" % item)
 
     #evaluation process
     #[ ] iterate through answer file
-    #[ ] compare em, f1?, autoais 
+    #[ ] compare em, f1?, autoais
+    #[ ] replace /n with \n 
 
 if __name__ == '__main__':
     print('Running RTR Baseline...')
+    start_id = 3
+    print('Start id: ', start_id)
     df = load_qa_file(qa_file_path)
+    if start_id != 0:
+        df = df[start_id:]
     doc2dial_doc = load_doc_file(doc_file_path)
-    RTRBaseline(df, doc2dial_doc, test=True, test_num=1, topk=1)
+    RTRBaseline(df, doc2dial_doc, test=False, test_num=10, topk=1, exp_id=3)

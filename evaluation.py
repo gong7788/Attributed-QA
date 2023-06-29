@@ -27,7 +27,6 @@ def infer_autoais(example, tokenizer, model):
   """
   input_text = format_example_for_autoais(example)
   input_ids = tokenizer(input_text, return_tensors="pt").input_ids
-  #[ ]TODO what is iput_ids?
   outputs = model.generate(input_ids)
   result = tokenizer.decode(outputs[0], skip_special_tokens=True)
   inference = "Y" if result == "1" else "N"
