@@ -20,7 +20,7 @@ qa_file_path = 'data/doc2dial/doc2dial_qa_train.csv'
 #load json file
 doc_file_path = 'data/doc2dial/doc2dial_doc.json'
 #chunk size
-cs = 1000
+cs = 500
 #chunk overlap
 c_overlap = 0
 #embedding model
@@ -67,8 +67,36 @@ def seaerch_doc(doc, db) -> List[Document]:
     docs = db.similarity_search(query)
     return docs
 
+def append_pre_next(idx, idx_list, max_idx):
+    if idx == 0:
+        idx_list.append(idx)
+        idx_list.append(idx+1)
+    elif idx == max_idx:
+        idx_list.append(idx-1)
+        idx_list.append(idx)
+    else:
+        idx_list.append(idx-1)
+        idx_list.append(idx)
+        idx_list.append(idx+1)
+    return idx_list
 
-def RTRBaseline(qa_set, doc2dial_doc, test=True, test_num=test_num, topk=topk, exp_id=None) -> None:
+def find_pre_next_doc(docs, retrived_doc, num=1):
+    max_idx = len(docs)-1
+    if num == 1:
+        idx_list = []
+        idx = docs.index(retrived_doc[0])
+        idx_list = append_pre_next(idx, idx_list, max_idx)
+        return idx_list
+    else:
+        top_docs = retrived_doc[:num]
+        idx_list = []
+        for top_doc in top_docs:
+            idx = docs.index(top_doc)
+            idx_list = append_pre_next(idx, idx_list, max_idx)
+        return idx_list
+
+
+def RTRBaseline(qa_set, doc2dial_doc, test=True, test_num=test_num, topk=topk, exp_id=None, new_method=False) -> None:
     """
     qa_set: dataframe of qa pairs {'question', 'answer', 'domain', 'doc_id', 'references', 'dial_id'}
     doc2dial_doc: dict (json file)
@@ -134,7 +162,14 @@ def RTRBaseline(qa_set, doc2dial_doc, test=True, test_num=test_num, topk=topk, e
             failed_doc_ids.append(index)
             print('search failed at: ', index)
             continue
-
+        
+        if new_method and result_docs is not None:
+            #find pre and next doc
+            #now fix num to 1, otherwise may larger than max token length
+            idx_list = find_pre_next_doc(split_documents, result_docs, num=1)
+            result_docs = [split_documents[i] for i in idx_list]
+            # if used new method, topk should not 1, but len(result_docs)
+            topk = len(result_docs)
         # ref_list = evaluation.get_ref(row, doc2dial_doc) # true references
 
         #get answer
@@ -200,17 +235,17 @@ def RTRBaseline(qa_set, doc2dial_doc, test=True, test_num=test_num, topk=topk, e
             for item in failed_doc_ids:
                 f.write("%s\n" % item)
 
-    #evaluation process
-    #[ ] iterate through answer file
-    #[ ] compare em, f1?, autoais
-    #[ ] replace /n with \n 
+    #evaluation process -> in evaluation.py
+    #[x] iterate through answer file
+    #[x] compare em, f1?, autoais
+    #[x] replace /n with \n 
 
 if __name__ == '__main__':
     print('Running RTR Baseline...')
-    start_id = 3
+    start_id = 0
     print('Start id: ', start_id)
     df = load_qa_file(qa_file_path)
     if start_id != 0:
         df = df[start_id:]
     doc2dial_doc = load_doc_file(doc_file_path)
-    RTRBaseline(df, doc2dial_doc, test=False, test_num=10, topk=1, exp_id=3)
+    RTRBaseline(df, doc2dial_doc, test=False, test_num=5, topk=1, exp_id=4, new_method=True)
