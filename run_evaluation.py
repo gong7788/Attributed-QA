@@ -5,7 +5,7 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration
 # import torch
 import os
 
-data_paths = ['data/doc2dial/result_3.csv']
+data_paths = ['data/doc2dial/result_4.csv']
 doc_file_path = 'data/doc2dial/doc2dial_doc.json'
 qa_file_path = 'data/doc2dial/doc2dial_qa_train.csv'
 max_num = 5000
@@ -125,4 +125,4 @@ if __name__ == "__main__":
     qa_df = pd.read_csv(qa_file_path)
     doc2dial_doc = load_doc_file(doc_file_path)
 
-    eval(df, qa_df, doc2dial_doc, test=False, test_num=10, eval_id=3)
+    eval(df, qa_df, doc2dial_doc, test=False, test_num=10, eval_id=4)

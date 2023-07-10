@@ -136,3 +136,4 @@ api.txt
 /data/doc2dial/*.csv
 /data/doc2dial/eval_*.csv
 /data/doc2dial/eval_*/
+/data/openqa/*

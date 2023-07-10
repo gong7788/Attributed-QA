@@ -33,6 +33,8 @@ chain_type = 'stuff' #not used now
 topk = 1
 #failed doc ids
 failed_doc_ids = []
+#dataset
+dataset = 'doc2dial'
 
 #get doc text
 # doc_text = doc2dial_doc['doc_data'][domain][doc_id]['doc_text']
@@ -211,29 +213,37 @@ def RTRBaseline(qa_set, doc2dial_doc, test=True, test_num=test_num, topk=topk, e
     
     result_df.to_csv(output_path, index=False)
 
-    # result infomation -> txt file
+    # write result infomation -> txt file
     filename = 'data/doc2dial/result_info.csv'
+    if new_method or dataset != 'doc2dial':
+        filename = 'data/doc2dial/result_info_1.csv'
     try:
         # Try to open the file in append mode
         new_df = pd.read_csv(filename)
     except FileNotFoundError:
         # If the file doesn't exist, create a new DataFrame
-        new_df = pd.DataFrame(columns=['embed model', 'qa_model', 'test mode', 'topk', 'chunk_size', 'chunk_overlap'])
+        if new_method or dataset != 'doc2dial':
+            new_df = pd.DataFrame(columns=['Experiment id','embed model', 'qa_model', 'test mode', 'topk', 'chunk_size', 'chunk_overlap', 'new_method', 'dataset'])
+        else:
+            new_df = pd.DataFrame(columns=['embed model', 'qa_model', 'test mode', 'topk', 'chunk_size', 'chunk_overlap'])
     print('='*20)
     print('Total split docs: ', total_split_docs)
     print('Total split times: ', cnt)
     print('Avg split docs: ', total_split_docs/cnt)
 
-    new_row = [embedding_model, qa_model, test, topk, cs, c_overlap]
+    if new_method or dataset != 'doc2dial':
+        new_row = [exp_id, embedding_model, qa_model, test, topk, cs, c_overlap, new_method, dataset]
+    else:
+        new_row = [embedding_model, qa_model, test, topk, cs, c_overlap]
     new_df.loc[len(new_df)] = new_row
     new_df.to_csv(filename, index=False)
     print("Exp info written to the file successfully.")
 
-    if not test:
-        fail_filename = 'data/doc2dial/failed_doc_ids_.csv'
-        with open(fail_filename, 'w') as f:
-            for item in failed_doc_ids:
-                f.write("%s\n" % item)
+    # if not test:
+    #     fail_filename = 'data/doc2dial/failed_doc_ids_.csv'
+    #     with open(fail_filename, 'w') as f:
+    #         for item in failed_doc_ids:
+    #             f.write("%s\n" % item)
 
     #evaluation process -> in evaluation.py
     #[x] iterate through answer file
