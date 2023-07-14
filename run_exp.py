@@ -21,7 +21,7 @@ def run_RTR_Model(data, qa_model_name, batch_size, output_path):
     
     # output_path = data_path.replace('withRefs', 'withModelAnswer')
     df = pd.DataFrame(columns=['question', 'answer', 'model_answer', 'ref', 'retrived_doc', 'doc_id'])
-    # [ ] pending question,answer,ref,passage(context),doc_id
+    # [x] pending question,answer,ref,passage(context),doc_id
 
     print('Info: qa_model_name: {} , batch_size: {}, size: {}'.format(qa_model_name, batch_size, len(dataset)))
 
@@ -100,6 +100,7 @@ if __name__ == "__main__":
         print('file exists, skip')
     else:
         print('Info: seting: {}, test_mode: {}, chunk_size: {}, chunk_overlap: {}, qa_model: {}, embedding_model: {}, new_method: {}, topk: {}'.format(setting, args.test, chunk_size, chunk_overlap, qa_model_name, embedding_model, new_method, topk))
+        print('Running retriever')
         result_df = retrieve_only(data_path, 
                     cs=chunk_size, 
                     c_overlap=chunk_overlap, 
@@ -109,5 +110,5 @@ if __name__ == "__main__":
                     topk=topk,
                     test_mode=test)
         # print('Created file with reference')
-
+    print('Running QA model')
     run_RTR_Model(result_df, qa_model_name, batch_size=16, output_path=output_path)

@@ -14,6 +14,16 @@ def format_example_for_autoais(example):
   return "premise: {} hypothesis: The answer to the question '{}' is '{}'".format(
       example["passage"], example["question"], example["answer"])
 
+def format_for_autoais_batch(questions, answers, refs):
+  example_list = []
+  for i in range(len(questions)):
+    question = questions[i].replace("##", " ")
+    answer = answers[i].replace("##", " ")
+    example = "premise: {} hypothesis: The answer to the question '{}' is '{}'".format(
+      refs[i], question, answer)
+    example_list.append(example)
+  return example_list
+
 def infer_autoais(example, tokenizer, model):
   """Runs inference for assessing AIS between a premise and hypothesis.
 
@@ -32,6 +42,19 @@ def infer_autoais(example, tokenizer, model):
   inference = "Y" if result == "1" else "N"
   example["autoais"] = inference
   return inference
+
+def infer_autoais_batch(questions, answers, refs, tokenizer, model):
+  example_list = format_for_autoais_batch(questions, answers, refs)
+
+  #batch inference
+  input_ids = tokenizer(example_list, return_tensors="pt", padding=True, truncation=True, max_length=512)
+
+  outputs = model.generate(input_ids['input_ids'], attention_mask=input_ids['attention_mask'])
+
+  results = tokenizer.batch_decode(outputs, skip_special_tokens=True)     
+
+  return results
+
 
 def score_predictions(predictions, nq_answers):
   """Scores model predictions against AutoAIS and NQ answers.

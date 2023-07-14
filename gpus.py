@@ -171,7 +171,7 @@ def demo_model_parallel(rank, world_size):
 
 def demo_model_parallel_t5(rank, world_size):
     print(f"Running DDP with model parallel t5 example on rank {rank}.")
-    setup(rank, world_size)
+    # setup(rank, world_size)
 
     tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-xl")
     t5_model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-xl")
@@ -196,7 +196,7 @@ def demo_model_parallel_t5(rank, world_size):
     print(tokenizer.decode(outputs[0], skip_special_tokens=True))
     
     t5_model.deparallelize()
-    cleanup()
+    # cleanup()
 
 def demo_pipeline():
     pipe = pipeline(model="google/flan-t5-xl", device=0)

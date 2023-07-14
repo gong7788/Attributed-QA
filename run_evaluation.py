@@ -2,13 +2,13 @@ import evaluation
 import pandas as pd
 import json
 from transformers import T5Tokenizer, T5ForConditionalGeneration
-# import torch
+import torch
+import torch.multiprocessing as mp
 import os
-
-data_paths = ['data/doc2dial/result_4.csv']
-doc_file_path = 'data/doc2dial/doc2dial_doc.json'
-qa_file_path = 'data/doc2dial/doc2dial_qa_train.csv'
-max_num = 5000
+import time
+import argparse
+from torch.utils.data import DataLoader
+from document_loader import doc2dialEvalDataset
 
 # failed_doc_ids = [645,1448,1523,1573,8159]
 AUTOAIS = "google/t5_xxl_true_nli_mixture"
@@ -76,6 +76,7 @@ def eval(df, qa_df, doc2dial_doc, test=False, test_num=1, eval_id=None):
         example['answer'] = model_answer 
         example['passage'] = retrived_doc
 
+        # measure time cost 
         autoais = evaluation.infer_autoais(example, hf_tokenizer, hf_model)
         total_autoais += autoais == 'Y' 
         #f1 score
@@ -93,7 +94,7 @@ def eval(df, qa_df, doc2dial_doc, test=False, test_num=1, eval_id=None):
         if test and cnt == test_num:
             break
         #set max number of evaluation
-        elif cnt == max_num:
+        elif cnt == 5000:
             break
         #save checkpoint
         elif not test and cnt % 1000 == 0 and cnt != 0:
@@ -118,11 +119,104 @@ def eval(df, qa_df, doc2dial_doc, test=False, test_num=1, eval_id=None):
     
     eval_df.to_csv(output_path, index=False)
 
-if __name__ == "__main__":
-    print('Running evaluation...')
-    df = read_data(data_paths)
-    df = df.dropna(subset=['answer'])
-    qa_df = pd.read_csv(qa_file_path)
-    doc2dial_doc = load_doc_file(doc_file_path)
+def autoais_only(path, subfolder, batch_size):
+    # check path form
+    if not path.endswith('_withModelAnswer.csv'):
+        raise ValueError('File path is not correct')
+    if not os.path.exists(path):
+        raise ValueError('File path does not exist')
 
-    eval(df, qa_df, doc2dial_doc, test=False, test_num=10, eval_id=4)
+    dataset = doc2dialEvalDataset(path)
+    # inference task, so shuffle is False
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+
+    tokenizer = T5Tokenizer.from_pretrained(AUTOAIS)
+    model = T5ForConditionalGeneration.from_pretrained(AUTOAIS)
+
+    first_batch = next(iter(dataloader))
+    questions = first_batch['question']
+    model_answer = first_batch['model_answer']
+    retrived_docs = first_batch['retrived_doc']
+    true_refs = first_batch['ref']
+
+    autoais = evaluation.infer_autoais_batch(questions, model_answer, retrived_docs, tokenizer, model)
+
+    # exp = {}
+    # exp['question'] = questions[0]
+    # exp['answer'] = model_answer[0]
+    # exp['passage'] = retrived_docs[0]
+
+    # _ = evaluation.infer_autoais(exp, tokenizer, model)
+
+    return autoais
+
+    # for batch in dataloader:
+    # #     # question,answer,model_answer,ref,retrived_doc,doc_id
+    #     questions = batch['question']
+    #     model_answer = batch['model_answer']
+    #     retrived_docs = batch['retrived_doc']
+    #     true_refs = batch['ref']
+
+    #     autoais = evaluation.infer_autoais_batch(questions, model_answer, retrived_docs, tokenizer=None, model=None)
+
+    # hf_tokenizer = T5Tokenizer.from_pretrained(AUTOAIS)
+    # hf_model = T5ForConditionalGeneration.from_pretrained(AUTOAIS)
+    # print('model loaded')
+
+
+def run_model_parallel(demo_fn, world_size):
+    mp.spawn(demo_fn,
+             args=(world_size,),
+             nprocs=world_size,
+             join=True)
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--path', type=str, help='load config settings')
+    parser.add_argument('-t', '--test', action='store_true', help='run in test mode')
+
+    args = parser.parse_args()
+    path = args.path
+
+    file_path = 'data/doc2dial/doc2dial_testset/doc2dial_500_top5_new/doc2dial_500_top5_new_withModelAnswer.csv'
+    # file_path = 'data/doc2dial/doc2dial_testset/DEFAULT/DEFAULT_withModelAnswer.csv'
+    subfolder = 'DEFAULT'
+
+    autoais = autoais_only(file_path, subfolder, batch_size=16)
+
+    print('autoais: ', autoais)
+
+    # for subfolder in os.listdir(path):
+    #     subfolder_path = os.path.join(path, subfolder)
+    #     file_name = subfolder + '_withModelAnswer.csv'
+    #     file_path = os.path.join(subfolder_path, file_name)
+    #     # Check if the file exists
+    #     if not os.path.exists(file_path):
+    #         print('File does not exist: ', file_path)
+    #     else:
+    #         print('Running evaluation on: ', file_path)
+    #         autoais_only(file_path, subfolder, batch_size=2)
+
+    # print('Running evaluation...')
+
+    # data_paths = ['data/doc2dial/result_4.csv']
+    # doc_file_path = 'data/doc2dial/doc2dial_doc.json'
+    # qa_file_path = 'data/doc2dial/doc2dial_qa_train.csv'
+    # max_num = 5000
+
+    # df = read_data(data_paths)
+    # df = df.dropna(subset=['answer'])
+    # qa_df = pd.read_csv(qa_file_path)
+    # doc2dial_doc = load_doc_file(doc_file_path)
+
+    # eval(df, qa_df, doc2dial_doc, test=True, test_num=1, eval_id=4)
+
+
+    # n_gpus = torch.cuda.device_count()
+    # if n_gpus < 2:
+    #     print(f"Requires at least 2 GPUs to run, but got {n_gpus}.")
+    # else:
+    #     # run_demo(demo_basic, 2)
+    #     world_size = n_gpus//2
+    #     run_model_parallel(demo_model_parallel_t5, world_size)

@@ -41,6 +41,24 @@ class OpenQADataset(Dataset):
                 'paragraphs': self.data.loc[idx, 'paragraphs']
                 }
         return sample
+    
+class doc2dialEvalDataset(Dataset):
+    def __init__(self, csv_file):
+        self.data = pd.read_csv(csv_file)
+
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem__(self, idx):
+        # question,answer,model_answer,ref,retrived_doc,doc_id
+        sample= {'question': self.data.loc[idx, 'question'],
+                'answer': self.data.loc[idx, 'answer'],
+                'model_answer': str(self.data.loc[idx, 'model_answer']),
+                'ref': self.data.loc[idx, 'ref'],
+                'retrived_doc': self.data.loc[idx, 'retrived_doc'],
+                'doc_id': self.data.loc[idx, 'doc_id'],
+                }
+        return sample
 
 # csv_file = 'data/doc2dial/qa_train_dmv.csv'
 # dataset = doc2dialDataset(csv_file)
