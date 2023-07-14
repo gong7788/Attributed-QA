@@ -2,52 +2,112 @@ import RTRBaseline
 import argparse
 import logging
 import torch
+import os
 from torch.utils.data import DataLoader
 from document_loader import doc2dialDataset, OpenQADataset
+from configparser import ConfigParser
+from models.retriever import retrieve_only
+from QAModel import local_answer_model
+import pandas as pd
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
-def run_RTR_Model(data_path, batch_size, test_mode):
+def run_RTR_Model(data, qa_model_name, batch_size, output_path):
     #csv_file = 'data/doc2dial/qa_train_dmv.csv'
 
     if 'doc2dial' in data_path:
-        dataset = doc2dialDataset(data_path)
+        dataset = doc2dialDataset(data)
     if 'openqa' in data_path:
-        dataset = OpenQADataset(data_path)
+        dataset = OpenQADataset(data)
+    
+    # output_path = data_path.replace('withRefs', 'withModelAnswer')
+    df = pd.DataFrame(columns=['question', 'answer', 'model_answer', 'ref', 'retrived_doc', 'doc_id'])
+    # [ ] pending question,answer,ref,passage(context),doc_id
 
-    shuffle = True
+    print('Info: qa_model_name: {} , batch_size: {}, size: {}'.format(qa_model_name, batch_size, len(dataset)))
 
-    if test_mode:
-        batch_size = 2
-        shuffle = False
-
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    model = AutoModelForSeq2SeqLM.from_pretrained(qa_model_name).to(device)
+    tokenizer = AutoTokenizer.from_pretrained(qa_model_name)
 
     for batch in dataloader:
         # Perform your training/inference operations on the batch
         questions = batch['question']
         answers = batch['answer']
         refs = batch['ref']
-        #[ ] retrieve docs = batch['retrived_doc']
+        retrieve_docs = batch['retrived_doc']
+        doc_ids = batch['doc_id']
 
-        print(questions)
-        print(answers)
-        print(refs)
+        model_answers = local_answer_model(model, tokenizer, questions, retrieve_docs, device)
 
-        break
+        for idx, answer in enumerate(model_answers):
+            df.loc[len(df)] = [questions[idx], 
+                                answers[idx], 
+                                answer,
+                                refs[idx], 
+                                retrieve_docs[idx],
+                                doc_ids[idx]]
+
+    df.to_csv(output_path, index=False)
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-    logging.info("Start Experiment")
+    print("Run Experiment")
+    logging.basicConfig(level=logging.WARNING)
+    logging.info("Start Running")
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--exp_id", type=int)
-    parser.add_argument("--data_path", type=str)
-    parser.add_argument("--new_method", action="store_true")
-    parser.add_argument("--test", action="store_true")
-    parser.add_argument("--batch_size", type=int, default=16)
+    parser.add_argument('--config', type=str, default='DEFAULT', help='load config settings')
+    parser.add_argument('-t', '--test', action='store_true', help='run in test mode')
     
     args = parser.parse_args()
-    logging.info("Experiment id: {}".format(args.exp_id))
+    setting = args.config
 
-    run_RTR_Model(data_path=args.data_path, batch_size=args.batch_size, test_mode=args.test)
+    config_object = ConfigParser()
+    config_object.read("config.ini")
+    userinfo = config_object[setting]
+    test = args.test
+
+    logging.info('Running experiment with config: {}'.format(setting))
+
+    data_path = userinfo['data_path']
+    print('data_path: ', data_path)
+    chunk_size = int(userinfo['chunk_size'])
+    chunk_overlap = int(userinfo['chunk_overlap'])
+    embedding_model = userinfo['embedding_model']
+    qa_model_name = userinfo['qa_model']
+    new_method = userinfo['new_method']
+    topk = int(userinfo['topk'])
+
+    directory = None
+    if data_path == 'data/doc2dial/qa_test_dmv.csv':
+        directory = 'data/doc2dial/doc2dial_testset/' + setting
+    elif 'doc2dial' in data_path:
+        directory = 'data/doc2dial/' + setting
+    elif 'openqa' in data_path:
+        directory = 'data/openqa/' + setting
+    else:
+        raise ValueError('dataset should either doc2dial or openqa')
+
+    if not os.path.exists(directory):
+        os.mkdir(directory)
+    
+    # if file exists
+    save_path = directory + '/'+ setting +'_withRefs.csv'
+    output_path = save_path.replace('withRefs', 'withModelAnswer')
+    if os.path.exists(save_path):
+        print('file exists, skip')
+    else:
+        print('Info: seting: {}, test_mode: {}, chunk_size: {}, chunk_overlap: {}, qa_model: {}, embedding_model: {}, new_method: {}, topk: {}'.format(setting, args.test, chunk_size, chunk_overlap, qa_model_name, embedding_model, new_method, topk))
+        result_df = retrieve_only(data_path, 
+                    cs=chunk_size, 
+                    c_overlap=chunk_overlap, 
+                    save_dir=save_path,
+                    new_method=False,
+                    embedding_model=embedding_model,
+                    topk=topk,
+                    test_mode=test)
+        # print('Created file with reference')
+
+    run_RTR_Model(result_df, qa_model_name, batch_size=16, output_path=output_path)

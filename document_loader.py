@@ -4,8 +4,13 @@ from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 
 class doc2dialDataset(Dataset):
-    def __init__(self, csv_file):
-        self.data = pd.read_csv(csv_file)
+    def __init__(self, data):
+        if isinstance(data, str):
+            self.data = pd.read_csv(data)
+        elif isinstance(data, pd.DataFrame):
+            self.data = data
+        else:
+            raise ValueError('Not supported data type.')
 
     def __len__(self):
         return len(self.data)
@@ -14,6 +19,7 @@ class doc2dialDataset(Dataset):
         sample = {'question': self.data.loc[idx, 'question'],
                   'answer': self.data.loc[idx, 'answer'],
                   'ref': self.data.loc[idx, 'ref'],
+                  'retrived_doc': self.data.loc[idx, 'passage(context)'],
                   'doc_id': self.data.loc[idx, 'doc_id'],
                   'dial_id': self.data.loc[idx, 'dial_id']
                 }
@@ -36,17 +42,17 @@ class OpenQADataset(Dataset):
                 }
         return sample
 
-csv_file = 'data/doc2dial/qa_train_dmv.csv'
-dataset = doc2dialDataset(csv_file)
-batch_size = 16
-dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+# csv_file = 'data/doc2dial/qa_train_dmv.csv'
+# dataset = doc2dialDataset(csv_file)
+# batch_size = 16
+# dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
-for i, batch in enumerate(dataloader):
-    print('ith sample: ', i) 
-    # Perform your training/inference operations on the batch
-    questions = batch['question']
-    answers = batch['answer']
-    refs = batch['ref']
+# for i, batch in enumerate(dataloader):
+#     print('ith sample: ', i) 
+#     # Perform your training/inference operations on the batch
+#     questions = batch['question']
+#     answers = batch['answer']
+#     refs = batch['ref']
 
 
 

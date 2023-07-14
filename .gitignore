@@ -131,9 +131,6 @@ dmypy.json
 .chroma/
 vector_store/
 api.txt
-/data/doc2dial/result_*.csv
-/data/doc2dial/result_*/
-/data/doc2dial/*.csv
-/data/doc2dial/eval_*.csv
-/data/doc2dial/eval_*/
-/data/openqa/*
+/data/
+
+/.vscode

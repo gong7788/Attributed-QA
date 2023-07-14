@@ -63,6 +63,32 @@ def answer_from_local_model(question, docs, tokenizer, model, model_name='google
     # print('langchain Results:')
     # print(model_answer)
     # return model_answer
+def format_prompt(questions, retrieve_docs) -> str:
+    formatted_texts = []
+    for question, context in zip(questions, retrieve_docs):
+        formatted_text = f"Context: {context}\n\nQuestion: {question}\n\nAnswer:"
+        formatted_texts.append(formatted_text)
+
+    return formatted_texts
+
+def local_answer_model(model, tokenizer, questions, retrieve_docs, device):
+    temps = format_prompt(questions, retrieve_docs)
+
+    inputs = tokenizer([sentence for sentence in temps], 
+                        return_tensors="pt", 
+                        padding=True, 
+                        max_length=512, 
+                        truncation=True)
+    inputs = inputs.to(device)
+    
+    output_sequences = model.generate(
+        input_ids=inputs['input_ids'],
+        attention_mask=inputs['attention_mask'],
+    )
+
+    model_answers = tokenizer.batch_decode(output_sequences, skip_special_tokens=True)
+
+    return model_answers
 
 def answer_from_openai(question, docs, model_name="text-davinci-003", ct="stuff", max_token=1024, topk=5) -> str:
     """
