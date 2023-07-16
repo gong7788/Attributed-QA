@@ -9,6 +9,7 @@ import time
 import argparse
 from torch.utils.data import DataLoader
 from document_loader import doc2dialEvalDataset
+from configparser import ConfigParser
 
 # failed_doc_ids = [645,1448,1523,1573,8159]
 AUTOAIS = "google/t5_xxl_true_nli_mixture"
@@ -139,6 +140,10 @@ def autoais_only(path, subfolder, batch_size):
     retrived_docs = first_batch['retrived_doc']
     true_refs = first_batch['ref']
 
+    # [ ] another autoais for true refs -> need a function to get true refs
+    # [ ] 
+
+
     autoais = evaluation.infer_autoais_batch(questions, model_answer, retrived_docs, tokenizer, model)
 
     # exp = {}
@@ -173,17 +178,23 @@ def run_model_parallel(demo_fn, world_size):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--path', type=str, help='load config settings')
+    parser.add_argument('--config', type=str, default='DEFAULT', help='load config settings')
+    parser.add_argument('--path', type=str, help='path to model folder')
     parser.add_argument('-t', '--test', action='store_true', help='run in test mode')
 
     args = parser.parse_args()
-    path = args.path
+    setting = args.config
+
+    config_object = ConfigParser()
+    config_object.read("config1.ini")
+    userinfo = config_object[setting]
+    path = userinfo["path"]
 
     file_path = 'data/doc2dial/doc2dial_testset/doc2dial_500_top5_new/doc2dial_500_top5_new_withModelAnswer.csv'
     # file_path = 'data/doc2dial/doc2dial_testset/DEFAULT/DEFAULT_withModelAnswer.csv'
     subfolder = 'DEFAULT'
 
-    autoais = autoais_only(file_path, subfolder, batch_size=16)
+    autoais = autoais_only(file_path, subfolder, batch_size=8)
 
     print('autoais: ', autoais)
 

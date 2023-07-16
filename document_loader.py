@@ -1,7 +1,9 @@
 import json
-import torch
-from torch.utils.data import Dataset, DataLoader
+
 import pandas as pd
+import ast
+
+from torch.utils.data import Dataset
 
 class doc2dialDataset(Dataset):
     def __init__(self, data):
@@ -16,8 +18,8 @@ class doc2dialDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        sample = {'question': self.data.loc[idx, 'question'],
-                  'answer': self.data.loc[idx, 'answer'],
+        sample = {'question': self.data.loc[idx, 'question'].replace('##', '\n'),
+                  'answer': self.data.loc[idx, 'answer'].replace('##', '\n'),
                   'ref': self.data.loc[idx, 'ref'],
                   'retrived_doc': self.data.loc[idx, 'passage(context)'],
                   'doc_id': self.data.loc[idx, 'doc_id'],
@@ -45,18 +47,31 @@ class OpenQADataset(Dataset):
 class doc2dialEvalDataset(Dataset):
     def __init__(self, csv_file):
         self.data = pd.read_csv(csv_file)
+        self.doc_data = json.load(open('data/doc2dial/doc2dial_doc.json', 'r'))
 
     def __len__(self):
         return len(self.data)
     
     def __getitem__(self, idx):
+        # preprocess
+        refs_ID = [[term['sp_id'] for term in _] for _ in ast.literal_eval(self.data.loc[idx, 'ref'])]
+        doc_file_span = self.doc_data['doc_data']['dmv'][self.data.loc[idx, 'doc_id']]['spans']
+        ll = [[doc_file_span[i] for i in l] for l in refs_ID]
+        p = self.doc_data['doc_data']['dmv'][self.data.loc[idx, 'doc_id']]['doc_text']
+
+        true_ref_position = [[(term['start_sp'], term['end_sp']) for term in _] for _ in ll]
+        start = p.find(self.data.loc[idx, 'retrived_doc'])
+        end = start + len(self.data.loc[idx, 'retrived_doc']) - 1
         # question,answer,model_answer,ref,retrived_doc,doc_id
-        sample= {'question': self.data.loc[idx, 'question'],
-                'answer': self.data.loc[idx, 'answer'],
+        sample= {'question': self.data.loc[idx, 'question'].replace('##', '\n'),
+                'answer': self.data.loc[idx, 'answer'].replace('##', '\n'),
                 'model_answer': str(self.data.loc[idx, 'model_answer']),
                 'ref': self.data.loc[idx, 'ref'],
                 'retrived_doc': self.data.loc[idx, 'retrived_doc'],
                 'doc_id': self.data.loc[idx, 'doc_id'],
+                'dial_id': self.data.loc[idx, 'dial_id'],
+                'true_ref_position': str(true_ref_position),
+                'retrieved_doc_position': (start, end),
                 }
         return sample
 

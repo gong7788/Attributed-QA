@@ -1,5 +1,4 @@
 import os 
-import torch
 from langchain import HuggingFaceHub
 from langchain.chains.question_answering import load_qa_chain
 from langchain import OpenAI
@@ -77,7 +76,7 @@ def local_answer_model(model, tokenizer, questions, retrieve_docs, device):
     inputs = tokenizer([sentence for sentence in temps], 
                         return_tensors="pt", 
                         padding=True, 
-                        max_length=512, 
+                        max_length=1024, 
                         truncation=True)
     inputs = inputs.to(device)
     

@@ -1,17 +1,20 @@
-import RTRBaseline
 import argparse
 import logging
 import torch
 import os
-from torch.utils.data import DataLoader
-from document_loader import doc2dialDataset, OpenQADataset
+import pandas as pd
 from configparser import ConfigParser
+
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from torch.utils.data import DataLoader
+
+from document_loader import doc2dialDataset, OpenQADataset
 from models.retriever import retrieve_only
 from QAModel import local_answer_model
-import pandas as pd
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
-def run_RTR_Model(data, qa_model_name, batch_size, output_path):
+
+
+def run_RTR_Model(data, qa_model_name, batch_size, output_path, test_mode=False):
     #csv_file = 'data/doc2dial/qa_train_dmv.csv'
 
     if 'doc2dial' in data_path:
@@ -20,7 +23,7 @@ def run_RTR_Model(data, qa_model_name, batch_size, output_path):
         dataset = OpenQADataset(data)
     
     # output_path = data_path.replace('withRefs', 'withModelAnswer')
-    df = pd.DataFrame(columns=['question', 'answer', 'model_answer', 'ref', 'retrived_doc', 'doc_id'])
+    df = pd.DataFrame(columns=['question', 'answer', 'model_answer', 'ref', 'retrived_doc', 'doc_id', 'dial_id'])
     # [x] pending question,answer,ref,passage(context),doc_id
 
     print('Info: qa_model_name: {} , batch_size: {}, size: {}'.format(qa_model_name, batch_size, len(dataset)))
@@ -30,7 +33,10 @@ def run_RTR_Model(data, qa_model_name, batch_size, output_path):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = AutoModelForSeq2SeqLM.from_pretrained(qa_model_name).to(device)
-    tokenizer = AutoTokenizer.from_pretrained(qa_model_name)
+    if qa_model_name == 'Intel/fid_flan_t5_base_nq':
+        tokenizer = AutoTokenizer.from_pretrained('google/flan-t5-base')
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(qa_model_name)
 
     for batch in dataloader:
         # Perform your training/inference operations on the batch
@@ -39,6 +45,7 @@ def run_RTR_Model(data, qa_model_name, batch_size, output_path):
         refs = batch['ref']
         retrieve_docs = batch['retrived_doc']
         doc_ids = batch['doc_id']
+        dial_ids = batch['dial_id']
 
         model_answers = local_answer_model(model, tokenizer, questions, retrieve_docs, device)
 
@@ -48,9 +55,13 @@ def run_RTR_Model(data, qa_model_name, batch_size, output_path):
                                 answer,
                                 refs[idx], 
                                 retrieve_docs[idx],
-                                doc_ids[idx]]
-
-    df.to_csv(output_path, index=False)
+                                doc_ids[idx],
+                                dial_ids[idx]]
+    if not test_mode:
+        df.to_csv(output_path, index=False)
+    else:
+        print('Test mode, save to test.csv')
+        df.to_csv('data/doc2dial/TEST/test.csv', index=False)
 
 if __name__ == "__main__":
     print("Run Experiment")
@@ -72,7 +83,6 @@ if __name__ == "__main__":
     logging.info('Running experiment with config: {}'.format(setting))
 
     data_path = userinfo['data_path']
-    print('data_path: ', data_path)
     chunk_size = int(userinfo['chunk_size'])
     chunk_overlap = int(userinfo['chunk_overlap'])
     embedding_model = userinfo['embedding_model']
@@ -81,7 +91,13 @@ if __name__ == "__main__":
     topk = int(userinfo['topk'])
 
     directory = None
-    if data_path == 'data/doc2dial/qa_test_dmv.csv':
+    if 't5base' in setting and 'fid' not in setting:
+        directory = 'data/doc2dial/t5base/' + setting
+    elif 't5small' in setting and 'fid' not in setting:
+        directory = 'data/doc2dial/t5small/' + setting
+    elif 'fid' in setting:
+        directory = 'data/doc2dial/fid/' + setting
+    elif data_path == 'data/doc2dial/qa_test_dmv.csv':
         directory = 'data/doc2dial/doc2dial_testset/' + setting
     elif 'doc2dial' in data_path:
         directory = 'data/doc2dial/' + setting
@@ -94,21 +110,23 @@ if __name__ == "__main__":
         os.mkdir(directory)
     
     # if file exists
-    save_path = directory + '/'+ setting +'_withRefs.csv'
-    output_path = save_path.replace('withRefs', 'withModelAnswer')
-    if os.path.exists(save_path):
-        print('file exists, skip')
-    else:
-        print('Info: seting: {}, test_mode: {}, chunk_size: {}, chunk_overlap: {}, qa_model: {}, embedding_model: {}, new_method: {}, topk: {}'.format(setting, args.test, chunk_size, chunk_overlap, qa_model_name, embedding_model, new_method, topk))
-        print('Running retriever')
-        result_df = retrieve_only(data_path, 
-                    cs=chunk_size, 
-                    c_overlap=chunk_overlap, 
-                    save_dir=save_path,
-                    new_method=False,
-                    embedding_model=embedding_model,
-                    topk=topk,
-                    test_mode=test)
+    # save_path = directory + '/'+ setting +'_withRefs.csv'
+    # output_path = save_path.replace('withRefs', 'withModelAnswer')
+    output_path = directory + '/'+ setting +'_withModelAnswer.csv'
+
+    # if os.path.exists(output_path):
+    #     print('file exists, skip')
+    # else:
+    print('Info: seting: {}, test_mode: {}, chunk_size: {}, chunk_overlap: {}, qa_model: {}, embedding_model: {}, new_method: {}, topk: {}'.format(setting, args.test, chunk_size, chunk_overlap, qa_model_name, embedding_model, new_method, topk))
+    print('Running retriever')
+    result_df = retrieve_only(data_path, 
+                cs=chunk_size, 
+                c_overlap=chunk_overlap, 
+                save_dir=None,
+                new_method=False,
+                embedding_model=embedding_model,
+                topk=topk,
+                test_mode=test)
         # print('Created file with reference')
     print('Running QA model')
-    run_RTR_Model(result_df, qa_model_name, batch_size=16, output_path=output_path)
+    run_RTR_Model(result_df, qa_model_name, batch_size=16, output_path=output_path, test_mode=test)

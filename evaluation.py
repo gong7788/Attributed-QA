@@ -1,4 +1,5 @@
 import re
+from utils import compute_time_cost
 from transformers import T5ForConditionalGeneration
 from transformers import T5Tokenizer
 
@@ -43,11 +44,12 @@ def infer_autoais(example, tokenizer, model):
   example["autoais"] = inference
   return inference
 
+@compute_time_cost
 def infer_autoais_batch(questions, answers, refs, tokenizer, model):
   example_list = format_for_autoais_batch(questions, answers, refs)
 
   #batch inference
-  input_ids = tokenizer(example_list, return_tensors="pt", padding=True, truncation=True, max_length=512)
+  input_ids = tokenizer(example_list, return_tensors="pt", padding=True, truncation=True, max_length=1024)
 
   outputs = model.generate(input_ids['input_ids'], attention_mask=input_ids['attention_mask'])
 
