@@ -5,6 +5,7 @@ import ast
 
 from torch.utils.data import Dataset
 
+
 class doc2dialDataset(Dataset):
     def __init__(self, data):
         if isinstance(data, str):
@@ -60,8 +61,13 @@ class doc2dialEvalDataset(Dataset):
         p = self.doc_data['doc_data']['dmv'][self.data.loc[idx, 'doc_id']]['doc_text']
 
         true_ref_position = [[(term['start_sp'], term['end_sp']) for term in _] for _ in ll]
-        start = p.find(self.data.loc[idx, 'retrived_doc'])
-        end = start + len(self.data.loc[idx, 'retrived_doc']) - 1
+        true_ref_string = [[term['text_sp'] for term in _] for _ in ll]
+
+        sentences = self.data.loc[idx, 'retrived_doc'].split('\n')
+        starts = [p.find(sentence) for sentence in sentences]
+        ends = [start + len(sentence) - 1 for start, sentence in zip(starts, sentences)]
+        ranges = [(start, end) for start, end in zip(starts, ends)]
+
         # question,answer,model_answer,ref,retrived_doc,doc_id
         sample= {'question': self.data.loc[idx, 'question'].replace('##', '\n'),
                 'answer': self.data.loc[idx, 'answer'].replace('##', '\n'),
@@ -71,7 +77,7 @@ class doc2dialEvalDataset(Dataset):
                 'doc_id': self.data.loc[idx, 'doc_id'],
                 'dial_id': self.data.loc[idx, 'dial_id'],
                 'true_ref_position': str(true_ref_position),
-                'retrieved_doc_position': (start, end),
+                'retrieved_doc_position': ranges,
                 }
         return sample
 

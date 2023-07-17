@@ -133,4 +133,4 @@ def compute_f1(model_answer, truth):
     prec = len(common_tokens) / len(pred_tokens)
     rec = len(common_tokens) / len(truth_tokens)
     
-    return 2 * (prec * rec) / (prec + rec)
+    return 2 * (prec * rec) / (prec + rec), prec, rec

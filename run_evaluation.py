@@ -1,6 +1,6 @@
-import evaluation
 import pandas as pd
 import json
+
 from transformers import T5Tokenizer, T5ForConditionalGeneration
 import torch
 import torch.multiprocessing as mp
@@ -10,6 +10,8 @@ import argparse
 from torch.utils.data import DataLoader
 from document_loader import doc2dialEvalDataset
 from configparser import ConfigParser
+
+import evaluation
 
 # failed_doc_ids = [645,1448,1523,1573,8159]
 AUTOAIS = "google/t5_xxl_true_nli_mixture"
@@ -136,9 +138,17 @@ def autoais_only(path, subfolder, batch_size):
 
     first_batch = next(iter(dataloader))
     questions = first_batch['question']
+    answers = first_batch['answer']
     model_answer = first_batch['model_answer']
     retrived_docs = first_batch['retrived_doc']
     true_refs = first_batch['ref']
+    true_ref_range = first_batch['true_ref_position']
+    retrieved_doc_range = first_batch['retrieved_doc_position']
+
+    # answer f1 
+    ans_f1 = [evaluation.compute_f1(model_answer[i], answers[i]) for i in range(len(model_answer))]
+    # attribution f1
+    att_f1 = [evaluation.compute_f1(retrived_docs[i], true_refs[i]) for i in range(len(model_answer))]
 
     # [ ] another autoais for true refs -> need a function to get true refs
     # [ ] 
