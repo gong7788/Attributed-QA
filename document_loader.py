@@ -62,6 +62,7 @@ class doc2dialEvalDataset(Dataset):
 
         true_ref_position = [[(term['start_sp'], term['end_sp']) for term in _] for _ in ll]
         true_ref_string = [[term['text_sp'] for term in _] for _ in ll]
+        concatenated_string = ' '.join(string for sublist in true_ref_string for string in sublist)
 
         sentences = self.data.loc[idx, 'retrived_doc'].split('\n')
         starts = [p.find(sentence) for sentence in sentences]
@@ -73,6 +74,7 @@ class doc2dialEvalDataset(Dataset):
                 'answer': self.data.loc[idx, 'answer'].replace('##', '\n'),
                 'model_answer': str(self.data.loc[idx, 'model_answer']),
                 'ref': self.data.loc[idx, 'ref'],
+                'ref_string': concatenated_string,
                 'retrived_doc': self.data.loc[idx, 'retrived_doc'],
                 'doc_id': self.data.loc[idx, 'doc_id'],
                 'dial_id': self.data.loc[idx, 'dial_id'],

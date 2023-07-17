@@ -122,7 +122,11 @@ def eval(df, qa_df, doc2dial_doc, test=False, test_num=1, eval_id=None):
     
     eval_df.to_csv(output_path, index=False)
 
-def autoais_only(path, subfolder, batch_size):
+
+def infer_autoais(path, output_path, batch_size, *args, **kwargs):
+    """
+    
+    """
     # check path form
     if not path.endswith('_withModelAnswer.csv'):
         raise ValueError('File path is not correct')
@@ -133,50 +137,92 @@ def autoais_only(path, subfolder, batch_size):
     # inference task, so shuffle is False
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
+    df = pd.DataFrame(columns=['question', 'answer', 'model_answer', 'true_ref_str', 'retrived_doc', 'answer_f1', 'answer_prec', 'answer_recall', 'autoais_retrevied(model_answer)', 'att_f1', 'att_prec', 'att_recall', 'autoais_true_answer', 'ref_range', 'retrieved_doc_range'])
+
     tokenizer = T5Tokenizer.from_pretrained(AUTOAIS)
     model = T5ForConditionalGeneration.from_pretrained(AUTOAIS)
 
-    first_batch = next(iter(dataloader))
-    questions = first_batch['question']
-    answers = first_batch['answer']
-    model_answer = first_batch['model_answer']
-    retrived_docs = first_batch['retrived_doc']
-    true_refs = first_batch['ref']
-    true_ref_range = first_batch['true_ref_position']
-    retrieved_doc_range = first_batch['retrieved_doc_position']
+    # first_batch = next(iter(dataloader))
+    # questions = first_batch['question']
+    # answers = first_batch['answer']
+    # model_answer = first_batch['model_answer']
+    # retrived_docs = first_batch['retrived_doc']
+    # true_refs = first_batch['ref_string']
+    # true_ref_range = first_batch['true_ref_position']
+    # retrieved_doc_range = first_batch['retrieved_doc_position']
 
-    # answer f1 
-    ans_f1 = [evaluation.compute_f1(model_answer[i], answers[i]) for i in range(len(model_answer))]
-    # attribution f1
-    att_f1 = [evaluation.compute_f1(retrived_docs[i], true_refs[i]) for i in range(len(model_answer))]
+    for batch in dataloader:
+    #     # question,answer,model_answer,ref,retrived_doc,doc_id
+        # questions = batch['question']
+        # model_answer = batch['model_answer']
+        # retrived_docs = batch['retrived_doc']
+        # true_refs = batch['ref']
+        questions = batch['question']
+        answers = batch['answer']
+        model_answer = batch['model_answer']
+        retrived_docs = batch['retrived_doc']
+        true_refs = batch['ref_string']
+        true_ref_range = batch['true_ref_position']
+        retrieved_doc_range = batch['retrieved_doc_position']
 
-    # [ ] another autoais for true refs -> need a function to get true refs
-    # [ ] 
+        # answer f1 
+        ans_f1 = []
+        ans_prec = []
+        ans_recall = []
+        for i in range(batch_size):
+            try:
+                f1, prec, recall = evaluation.compute_f1(model_answer[i], answers[i], return_prec_recall=True)
+                ans_f1.append(f1)
+                ans_prec.append(prec)
+                ans_recall.append(recall)
+            except:
+                print('cnt: ', i)
+                ans_f1.append(0)
+                ans_prec.append(0)
+                ans_recall.append(0)
+        # attribution f1
+        att_f1 = []
+        att_prec = []
+        att_recall = []
+        for i in range(batch_size):
+            try:
+                f1, prec, recall = evaluation.compute_f1(retrived_docs[i], true_refs[i], return_prec_recall=True)
+                att_f1.append(f1)
+                att_prec.append(prec)
+                att_recall.append(recall)
+            except:
+                print('cnt: ', i)
+                att_f1.append(0)
+                att_prec.append(0)
+                att_recall.append(0)
 
+        autoais_retrived = evaluation.infer_autoais_batch(questions, model_answer, retrived_docs, tokenizer, model)
 
-    autoais = evaluation.infer_autoais_batch(questions, model_answer, retrived_docs, tokenizer, model)
+        # [x] another autoais for true refs -> need a function to get true refs ??? 
+        autoais_true_answer = evaluation.infer_autoais_batch(questions, answers, retrived_docs, tokenizer, model)
 
-    # exp = {}
-    # exp['question'] = questions[0]
-    # exp['answer'] = model_answer[0]
-    # exp['passage'] = retrived_docs[0]
-
-    # _ = evaluation.infer_autoais(exp, tokenizer, model)
-
-    return autoais
-
-    # for batch in dataloader:
-    # #     # question,answer,model_answer,ref,retrived_doc,doc_id
-    #     questions = batch['question']
-    #     model_answer = batch['model_answer']
-    #     retrived_docs = batch['retrived_doc']
-    #     true_refs = batch['ref']
-
-    #     autoais = evaluation.infer_autoais_batch(questions, model_answer, retrived_docs, tokenizer=None, model=None)
-
-    # hf_tokenizer = T5Tokenizer.from_pretrained(AUTOAIS)
-    # hf_model = T5ForConditionalGeneration.from_pretrained(AUTOAIS)
-    # print('model loaded')
+        for i in range(batch_size):
+            df.loc[len(df)] = [questions[i], 
+                                answers[i], 
+                                model_answer[i],
+                                true_refs[i], 
+                                retrived_docs[i],
+                                ans_f1[i],
+                                ans_prec[i],
+                                ans_recall[i],
+                                autoais_retrived[i],
+                                att_f1[i],
+                                att_prec[i],
+                                att_recall[i],
+                                autoais_true_answer[i],
+                                true_ref_range[i],
+                                retrieved_doc_range[i]]
+        
+        if test_mode:
+            output_path = 'data/doc2dial/eval_test.csv'
+            print('output save in : ', output_path)
+        else:
+            df.to_csv(output_path, index=False)
 
 
 def run_model_parallel(demo_fn, world_size):
@@ -194,32 +240,40 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     setting = args.config
+    test_mode = args.test
 
     config_object = ConfigParser()
     config_object.read("config1.ini")
     userinfo = config_object[setting]
     path = userinfo["path"]
 
-    file_path = 'data/doc2dial/doc2dial_testset/doc2dial_500_top5_new/doc2dial_500_top5_new_withModelAnswer.csv'
-    # file_path = 'data/doc2dial/doc2dial_testset/DEFAULT/DEFAULT_withModelAnswer.csv'
-    subfolder = 'DEFAULT'
+    # file_path = 'data/doc2dial/doc2dial_testset/doc2dial_500_top5_new/doc2dial_500_top5_new_withModelAnswer.csv'
+    # # file_path = 'data/doc2dial/doc2dial_testset/DEFAULT/DEFAULT_withModelAnswer.csv'
+    # subfolder = 'DEFAULT'
 
-    autoais = autoais_only(file_path, subfolder, batch_size=8)
+    # print('output path: ', path + '/' + subfolder)
 
-    print('autoais: ', autoais)
+    # infer_autoais(file_path, subfolder, batch_size=8)
 
-    # for subfolder in os.listdir(path):
-    #     subfolder_path = os.path.join(path, subfolder)
-    #     file_name = subfolder + '_withModelAnswer.csv'
-    #     file_path = os.path.join(subfolder_path, file_name)
-    #     # Check if the file exists
-    #     if not os.path.exists(file_path):
-    #         print('File does not exist: ', file_path)
-    #     else:
-    #         print('Running evaluation on: ', file_path)
-    #         autoais_only(file_path, subfolder, batch_size=2)
+    print('target_folder: ', path)
 
-    # print('Running evaluation...')
+    for subfolder in os.listdir(path):
+        subfolder_path = os.path.join(path, subfolder)
+        file_name = subfolder + '_withModelAnswer.csv'
+        file_path = os.path.join(subfolder_path, file_name)
+        # Check if the file exists
+        if not os.path.exists(file_path):
+            print('File does not exist: ', file_path)
+        else:
+            output_path = os.path.join(subfolder_path, 'eval.csv')
+            if test_mode:
+                print('Output path should be: ', output_path)
+            # infer_autoais(file_path, subfolder, batch_size=8)
+            else:
+                print('Running: ', subfolder)
+                infer_autoais(file_path, output_path, batch_size=8)
+
+  
 
     # data_paths = ['data/doc2dial/result_4.csv']
     # doc_file_path = 'data/doc2dial/doc2dial_doc.json'

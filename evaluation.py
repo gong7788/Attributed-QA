@@ -116,7 +116,9 @@ def normalize_text(s):
 
     return white_space_fix(remove_articles(remove_punc(lower(s))))
 
-def compute_f1(model_answer, truth):
+def compute_f1(model_answer, truth, *args, **kwargs):
+    return_prec_recall = kwargs['return_prec_recall']
+
     pred_tokens = normalize_text(model_answer).split()
     truth_tokens = normalize_text(truth).split()
     
@@ -127,10 +129,15 @@ def compute_f1(model_answer, truth):
     common_tokens = set(pred_tokens) & set(truth_tokens)
     
     # if there are no common tokens then f1 = 0
-    if len(common_tokens) == 0:
+    if len(common_tokens) == 0 and return_prec_recall:
+        return 0, 0, 0
+    elif len(common_tokens) == 0:
         return 0
     
     prec = len(common_tokens) / len(pred_tokens)
     rec = len(common_tokens) / len(truth_tokens)
-    
-    return 2 * (prec * rec) / (prec + rec), prec, rec
+
+    if return_prec_recall:
+        return 2 * (prec * rec) / (prec + rec), prec, rec
+    else:
+        return 2 * (prec * rec)
