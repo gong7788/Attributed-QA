@@ -8,7 +8,7 @@ from configparser import ConfigParser
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from torch.utils.data import DataLoader
 
-from document_loader import doc2dialDataset, OpenQADataset
+from dataloader import doc2dialDataset, OpenQADataset
 from models.retriever import retrieve_only
 from QAModel import local_answer_model
 

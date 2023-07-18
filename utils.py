@@ -1,6 +1,6 @@
 import time
 
-def compute_time_cost(func):
+def timeit(func):
     def wrapper(*args, **kwargs):
         start_time = time.time()
         result = func(*args, **kwargs)

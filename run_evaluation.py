@@ -8,10 +8,11 @@ import os
 import time
 import argparse
 from torch.utils.data import DataLoader
-from document_loader import doc2dialEvalDataset
+from dataloader import doc2dialEvalDataset
 from configparser import ConfigParser
 
 import evaluation
+from utils import timeit
 
 # failed_doc_ids = [645,1448,1523,1573,8159]
 AUTOAIS = "google/t5_xxl_true_nli_mixture"
@@ -122,7 +123,7 @@ def eval(df, qa_df, doc2dial_doc, test=False, test_num=1, eval_id=None):
     
     eval_df.to_csv(output_path, index=False)
 
-
+@timeit
 def infer_autoais(path, output_path, batch_size, *args, **kwargs):
     """
     
@@ -137,7 +138,7 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
     # inference task, so shuffle is False
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
-    df = pd.DataFrame(columns=['question', 'answer', 'model_answer', 'true_ref_str', 'retrived_doc', 'answer_f1', 'answer_prec', 'answer_recall', 'autoais_retrevied(model_answer)', 'att_f1', 'att_prec', 'att_recall', 'autoais_true_answer', 'ref_range', 'retrieved_doc_range'])
+    df = pd.DataFrame(columns=['question', 'answer', 'model_answer', 'true_ref_str', 'retrived_doc', 'answer_f1', 'answer_prec', 'answer_recall', 'autoais_retrevied(model_answer)', 'att_f1', 'att_prec', 'att_recall', 'autoais_true_answer', 'ref_range'])
 
     tokenizer = T5Tokenizer.from_pretrained(AUTOAIS)
     model = T5ForConditionalGeneration.from_pretrained(AUTOAIS)
@@ -163,13 +164,13 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
         retrived_docs = batch['retrived_doc']
         true_refs = batch['ref_string']
         true_ref_range = batch['true_ref_position']
-        retrieved_doc_range = batch['retrieved_doc_position']
+        # retrieved_doc_range = batch['retrieved_doc_position']
 
         # answer f1 
         ans_f1 = []
         ans_prec = []
         ans_recall = []
-        for i in range(batch_size):
+        for i in range(len(questions)):
             try:
                 f1, prec, recall = evaluation.compute_f1(model_answer[i], answers[i], return_prec_recall=True)
                 ans_f1.append(f1)
@@ -184,7 +185,7 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
         att_f1 = []
         att_prec = []
         att_recall = []
-        for i in range(batch_size):
+        for i in range(len(questions)):
             try:
                 f1, prec, recall = evaluation.compute_f1(retrived_docs[i], true_refs[i], return_prec_recall=True)
                 att_f1.append(f1)
@@ -215,8 +216,7 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
                                 att_prec[i],
                                 att_recall[i],
                                 autoais_true_answer[i],
-                                true_ref_range[i],
-                                retrieved_doc_range[i]]
+                                true_ref_range[i]]
         
         if test_mode:
             output_path = 'data/doc2dial/eval_test.csv'

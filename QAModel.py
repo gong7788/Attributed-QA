@@ -1,4 +1,5 @@
-import os 
+import os
+import timeit 
 from langchain import HuggingFaceHub
 from langchain.chains.question_answering import load_qa_chain
 from langchain import OpenAI
@@ -70,6 +71,7 @@ def format_prompt(questions, retrieve_docs) -> str:
 
     return formatted_texts
 
+@timeit
 def local_answer_model(model, tokenizer, questions, retrieve_docs, device):
     temps = format_prompt(questions, retrieve_docs)
 

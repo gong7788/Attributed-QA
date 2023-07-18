@@ -1,11 +1,60 @@
+import timeit
 import pandas as pd
 from langchain.docstore.document import Document
+
 import embedding
 from RTRBaseline import load_doc_file, load_qa_file, seaerch_doc, find_pre_next_doc
+from embedding import embedding
 import os
+import ast
 
 def BaseRetriever():
     raise NotImplementedError()
+
+@timeit
+def retrieve_openqa(batch_question, batch_paragraphs, model='sentence-transformers/gtr-t5-base', new_method=False, topk=1):
+    """
+    retriever for OpenQA dataset
+    """
+    batch_result = []
+    batch_idx = []
+    if len(batch_question) != len(batch_paragraphs):
+        raise ValueError('batch_question and batch_paragraphs should have same length')
+    
+    for i in range(len(batch_question)):
+        paragraphs = batch_paragraphs[i]
+        question = batch_question[i]
+        paragraph_list = ast.literal_eval(paragraphs)
+        docs = [Document(page_content=paragraph_list[i], metadata={'p_idx':i}) for i in range(len(paragraph_list))]
+        # build index or read index
+        db = embedding(docs, model=model)
+        
+        res = db.similarity_search(question)
+
+        if new_method:
+            if topk != 1:
+                raise ValueError('topk should be 1 when using new_method')
+            
+            idx = res[0].metadata['p_idx']
+            if idx == 0:
+                res_idx = [idx, idx+1]
+            elif idx == len(paragraph_list) - 1:
+                res_idx = [idx-1, idx]
+            else:
+                res_idx = [idx-1, idx, idx+1]
+
+            res_content = [paragraph_list[i] for i in res_idx]
+
+            batch_result.append(res_content)
+            batch_idx.append(res_idx)
+
+        else:
+            res_content = [doc.page_content for doc in res][:topk]
+            res_idx = [doc.metadata['p_idx'] for doc in res][:topk]
+            batch_result.append(res_content)
+            batch_idx.append(res_idx)
+
+    return batch_result, batch_idx
 
 def retrieve_only(data_path, cs, c_overlap, save_dir, embedding_model='sentence-transformers/gtr-t5-base', new_method=False, topk=1, test_mode=False):
     last_doc_name = ''

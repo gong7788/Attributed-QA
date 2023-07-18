@@ -1,5 +1,5 @@
 import re
-from utils import compute_time_cost
+from utils import timeit
 from transformers import T5ForConditionalGeneration
 from transformers import T5Tokenizer
 
@@ -44,7 +44,6 @@ def infer_autoais(example, tokenizer, model):
   example["autoais"] = inference
   return inference
 
-@compute_time_cost
 def infer_autoais_batch(questions, answers, refs, tokenizer, model):
   example_list = format_for_autoais_batch(questions, answers, refs)
 
