@@ -1,3 +1,4 @@
+import datetime
 import pandas as pd
 import json
 
@@ -202,7 +203,7 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
         # [x] another autoais for true refs -> need a function to get true refs ??? 
         autoais_true_answer = evaluation.infer_autoais_batch(questions, answers, retrived_docs, tokenizer, model)
 
-        for i in range(batch_size):
+        for i in range(len(questions)):
             df.loc[len(df)] = [questions[i], 
                                 answers[i], 
                                 model_answer[i],
@@ -217,12 +218,12 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
                                 att_recall[i],
                                 autoais_true_answer[i],
                                 true_ref_range[i]]
-        
-        if test_mode:
-            output_path = 'data/doc2dial/eval_test.csv'
-            print('output save in : ', output_path)
-        else:
-            df.to_csv(output_path, index=False)
+    #[x] shift left one tag, write out should be outside of the loop
+    if test_mode:
+        output_path = 'data/doc2dial/eval_test.csv'
+        print('output save in : ', output_path)
+    else:
+        df.to_csv(output_path, index=False)
 
 
 def run_model_parallel(demo_fn, world_size):
@@ -265,13 +266,25 @@ if __name__ == "__main__":
         if not os.path.exists(file_path):
             print('File does not exist: ', file_path)
         else:
+            if setting == 'DEFAULT' and subfolder == 'doc2dial_1000_top1':
+                print('Skip: ', subfolder)
+                continue
+            if setting == 'DEFAULT' and subfolder == 'doc2dial_500_top5':
+                print('Skip: ', subfolder)
+                continue
+            if setting == 'DEFAULT' and subfolder == 'DEFAULT':
+                print('Skip: ', subfolder)
+                continue
+
             output_path = os.path.join(subfolder_path, 'eval.csv')
             if test_mode:
                 print('Output path should be: ', output_path)
             # infer_autoais(file_path, subfolder, batch_size=8)
             else:
-                print('Running: ', subfolder)
+                # record current time 
+                print('Subfolder: ', subfolder)
                 infer_autoais(file_path, output_path, batch_size=8)
+
 
   
 
