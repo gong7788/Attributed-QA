@@ -50,7 +50,7 @@ def main(path, *args, **kwargs):
         human_ratings = batch['human_rating']
         batch_paragraphs = batch['paragraphs']
 
-        retrieve_docs, retrieve_docs_idx = retrieve_openqa(questions, batch_paragraphs, model=embedding_model, new_method=new_method, topk=topk)
+        retrieve_docs, retrieve_docs_idx = retrieve_openqa(questions, batch_paragraphs, true_refs,model=embedding_model, new_method=new_method, topk=topk)
 
         model_answers = local_answer_model(model, tokenizer, questions, retrieve_docs, device)
 
@@ -99,3 +99,4 @@ if __name__ == "__main__":
         os.makedirs(qa_model_name)
 
     main(data_path, qa_model_name=qa_model_name, batch_size=2, test_mode=test, output_path=output_path, embedding_model=embedding_model, new_method=new_method, topk=topk)
+    #[ ] should work, need to test

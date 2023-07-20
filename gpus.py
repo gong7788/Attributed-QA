@@ -10,6 +10,11 @@ from transformers import pipeline
 
 from torch.nn.parallel import DistributedDataParallel as DDP
 from transformers import T5Tokenizer, T5ForConditionalGeneration
+from torch.utils.data.distributed import DistributedSampler
+from torch.utils.data import DataLoader
+from dataloader import doc2dialDataset
+
+from QAModel import format_prompt
 
 task_prefix = "translate English to German: "
 # use different length sentences to test batching
@@ -213,6 +218,68 @@ def data():
         # does the preprocessing while the main runs the big inference
         yield "translate English to German: The house is wonderful."
 
+def prepare(rank, world_size, batch_size=2, pin_memory=False, num_workers=0):
+    path = 'data/doc2dial/TEST/DDP_Finetune.csv'
+    dataset = doc2dialDataset(path)
+    sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=False, drop_last=False)
+    
+    dataloader = DataLoader(dataset, batch_size=batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False, shuffle=False, sampler=sampler)
+    
+    return dataloader
+
+def demo_parallel(rank, world_size):
+    print(f"Running DDP with model parallel example on rank {rank}.")
+    setup(rank, world_size)
+
+    DDP_dataloader = prepare(rank, world_size, batch_size=2, pin_memory=False, num_workers=0)
+
+    tokenizer = T5Tokenizer.from_pretrained("t5-small")
+    model = T5ForConditionalGeneration.from_pretrained("t5-small")
+
+    model = model.to(rank)
+    ddp_model = DDP(model, device_ids=[rank])
+
+    for epoch in epochs:
+
+        DDP_dataloader.sampler.set_epoch(epoch)
+
+        for step, x in enumerate(epoch):
+
+            qs = first_batch['question']
+            answers = first_batch['answer']
+            refs = first_batch['ref'] # ?
+
+            temps = format_prompt(qs, refs)
+            
+            #encoding inputs
+            encoding = tokenizer(temps, 
+                                return_tensors="pt", 
+                                padding='longest', 
+                                max_length=1024, 
+                                truncation=True)
+            
+            input_ids, attention_mask = encoding.input_ids, encoding.attention_mask
+
+            #encoding targets
+            target_encoding = tokenizer(answers,
+                                        return_tensors="pt",
+                                        padding='longest',
+                                        max_length=1024,
+                                        truncation=True)
+            labels = target_encoding.input_ids
+
+            loss_fn = nn.MSELoss()
+            optimizer = optim.SGD(ddp_model.parameters(), lr=0.001)
+
+            optimizer.zero_grad()
+
+            outputs = ddp_model(input_ids, attention_mask)
+
+            loss_fn(outputs, labels).backward()
+            optimizer.step()
+
+    cleanup()
+
 def run_demo(demo_fn, world_size):
     mp.spawn(demo_fn,
              args=(world_size,),
@@ -221,10 +288,6 @@ def run_demo(demo_fn, world_size):
 
 if __name__=="__main__":
     n_gpus = torch.cuda.device_count()
-    if n_gpus < 2:
-        print(f"Requires at least 2 GPUs to run, but got {n_gpus}.")
-    else:
-        # run_demo(demo_basic, 2)
-        world_size = n_gpus//2
-        run_demo(demo_model_parallel_t5, world_size)
-        # demo_pipeline()
+    assert n_gpus >= 2, f"Requires at least 2 GPUs to run, but got {n_gpus}"
+    world_size = n_gpus
+    run_demo(demo_parallel, world_size)

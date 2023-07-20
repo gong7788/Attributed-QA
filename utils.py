@@ -12,3 +12,6 @@ def timeit(func):
         print(f"Function '{func.__name__}' took {execution_time:.6f} seconds to execute.")
         return result
     return wrapper
+
+def get_title(passage):
+    return passage.split('\n')[0]

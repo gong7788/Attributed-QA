@@ -1,5 +1,5 @@
 import os
-import timeit 
+from utils import timeit
 from langchain import HuggingFaceHub
 from langchain.chains.question_answering import load_qa_chain
 from langchain import OpenAI
@@ -63,7 +63,7 @@ def answer_from_local_model(question, docs, tokenizer, model, model_name='google
     # print('langchain Results:')
     # print(model_answer)
     # return model_answer
-def format_prompt(questions, retrieve_docs) -> str:
+def format_prompt(questions, retrieve_docs):
     formatted_texts = []
     for question, context in zip(questions, retrieve_docs):
         formatted_text = f"Context: {context}\n\nQuestion: {question}\n\nAnswer:"
@@ -71,7 +71,6 @@ def format_prompt(questions, retrieve_docs) -> str:
 
     return formatted_texts
 
-@timeit
 def local_answer_model(model, tokenizer, questions, retrieve_docs, device):
     temps = format_prompt(questions, retrieve_docs)
 

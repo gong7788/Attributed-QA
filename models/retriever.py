@@ -1,18 +1,18 @@
-import timeit
 import pandas as pd
+import os
+import ast
 from langchain.docstore.document import Document
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.vectorstores import FAISS
 
 import embedding
 from RTRBaseline import load_doc_file, load_qa_file, seaerch_doc, find_pre_next_doc
 from embedding import embedding
-import os
-import ast
+from utils import get_title, timeit
 
-def BaseRetriever():
-    raise NotImplementedError()
 
-@timeit
-def retrieve_openqa(batch_question, batch_paragraphs, model='sentence-transformers/gtr-t5-base', new_method=False, topk=1):
+
+def retrieve_openqa(batch_question, batch_paragraphs, true_refs, model='sentence-transformers/gtr-t5-base', new_method=False, topk=1):
     """
     retriever for OpenQA dataset
     """
@@ -21,17 +21,37 @@ def retrieve_openqa(batch_question, batch_paragraphs, model='sentence-transforme
     if len(batch_question) != len(batch_paragraphs):
         raise ValueError('batch_question and batch_paragraphs should have same length')
     
+    embeddings = HuggingFaceEmbeddings(model_name = model)
+    
     for i in range(len(batch_question)):
+        index_path = "data/faiss_index"
+        #[x] check is title already exist, if so load index, otherwise build index
         paragraphs = batch_paragraphs[i]
         question = batch_question[i]
-        paragraph_list = ast.literal_eval(paragraphs)
-        docs = [Document(page_content=paragraph_list[i], metadata={'p_idx':i}) for i in range(len(paragraph_list))]
-        # build index or read index
-        db = embedding(docs, model=model)
-        
+        title = get_title(true_refs[i])
+
+        print('title: ', title)
+
+        index_path = index_path + '/' + title + '.faiss'
+        print('index_path: ', index_path)
+
+        # if index exits, load index
+        if os.path.exists(index_path):
+            print('load index')
+            db = FAISS.load_local("data/faiss_index", embeddings= embeddings, index_name=title)
+        else:
+            print('build index')
+            paragraph_list = ast.literal_eval(paragraphs)
+            docs = [Document(page_content=paragraph_list[i], metadata={'p_idx':i}) for i in range(len(paragraph_list))]
+            db = FAISS.from_documents(docs, embeddings)
+
+        # search
+
         res = db.similarity_search(question)
+        #################################################
 
         if new_method:
+            paragraph_list = ast.literal_eval(paragraphs)
             if topk != 1:
                 raise ValueError('topk should be 1 when using new_method')
             
