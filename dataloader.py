@@ -8,6 +8,7 @@ from torch.utils.data import Dataset
 
 class doc2dialDataset(Dataset):
     def __init__(self, data):
+        self.doc_data = json.load(open('data/doc2dial/doc2dial_doc.json', 'r'))
         if isinstance(data, str):
             self.data = pd.read_csv(data)
         elif isinstance(data, pd.DataFrame):
@@ -19,9 +20,19 @@ class doc2dialDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
+        refs_ID = [term['sp_id'] for term in ast.literal_eval(self.data.loc[idx, 'ref'])]
+
+        doc_file_span = self.doc_data['doc_data']['dmv'][self.data.loc[idx, 'doc_id']]['spans']
+        ll = [doc_file_span[i] for i in refs_ID]
+        print(ll)
+
+        true_ref_string = [term['text_sp'] for term in ll]
+        concatenated_string = ' '.join(string for sublist in true_ref_string for string in sublist)
+
         sample = {'question': self.data.loc[idx, 'question'].replace('##', '\n'),
                   'answer': self.data.loc[idx, 'answer'].replace('##', '\n'),
                   'ref': self.data.loc[idx, 'ref'],
+                  'ref_string': concatenated_string,
                   'retrived_doc': self.data.loc[idx, 'passage(context)'],
                   'doc_id': self.data.loc[idx, 'doc_id'],
                   'dial_id': self.data.loc[idx, 'dial_id']

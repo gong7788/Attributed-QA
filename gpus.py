@@ -227,7 +227,7 @@ def prepare(rank, world_size, batch_size=2, pin_memory=False, num_workers=0):
     
     return dataloader
 
-def demo_parallel(rank, world_size):
+def demo_parallel(rank, world_size, epochs=range(2)):
     print(f"Running DDP with model parallel example on rank {rank}.")
     setup(rank, world_size)
 
@@ -243,11 +243,11 @@ def demo_parallel(rank, world_size):
 
         DDP_dataloader.sampler.set_epoch(epoch)
 
-        for step, x in enumerate(epoch):
+        for idx, batch in enumerate(DDP_dataloader):
 
-            qs = first_batch['question']
-            answers = first_batch['answer']
-            refs = first_batch['ref'] # ?
+            qs = batch['question']
+            answers = batch['answer']
+            refs = batch['ref'] # ?
 
             temps = format_prompt(qs, refs)
             

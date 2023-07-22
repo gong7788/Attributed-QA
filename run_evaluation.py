@@ -136,13 +136,16 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
         raise ValueError('File path does not exist')
 
     dataset = doc2dialEvalDataset(path)
+    print('size: ', len(dataset))
     # inference task, so shuffle is False
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
     df = pd.DataFrame(columns=['question', 'answer', 'model_answer', 'true_ref_str', 'retrived_doc', 'answer_f1', 'answer_prec', 'answer_recall', 'autoais_retrevied(model_answer)', 'att_f1', 'att_prec', 'att_recall', 'autoais_true_answer', 'ref_range'])
 
-    tokenizer = T5Tokenizer.from_pretrained(AUTOAIS)
-    model = T5ForConditionalGeneration.from_pretrained(AUTOAIS)
+    tokenizer = T5Tokenizer.from_pretrained(AUTOAIS, legacy=False)
+    model = T5ForConditionalGeneration.from_pretrained(AUTOAIS, device_map="auto")
+    print('model loaded')
+    # AutoModelForSeq2SeqLM.from_pretrained(AUTOAIS, device_map="auto")
 
     # first_batch = next(iter(dataloader))
     # questions = first_batch['question']
@@ -155,10 +158,6 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
 
     for batch in dataloader:
     #     # question,answer,model_answer,ref,retrived_doc,doc_id
-        # questions = batch['question']
-        # model_answer = batch['model_answer']
-        # retrived_docs = batch['retrived_doc']
-        # true_refs = batch['ref']
         questions = batch['question']
         answers = batch['answer']
         model_answer = batch['model_answer']
@@ -248,42 +247,42 @@ if __name__ == "__main__":
     userinfo = config_object[setting]
     path = userinfo["path"]
 
-    # file_path = 'data/doc2dial/doc2dial_testset/doc2dial_500_top5_new/doc2dial_500_top5_new_withModelAnswer.csv'
-    # # file_path = 'data/doc2dial/doc2dial_testset/DEFAULT/DEFAULT_withModelAnswer.csv'
-    # subfolder = 'DEFAULT'
+    if test_mode:
+        print('Test mode')
+        file_path = 'data/doc2dial/TEST/test_withModelAnswer.csv'
+        output_path = 'data/doc2dial/TEST/eval.csv'
 
-    # print('output path: ', path + '/' + subfolder)
+        infer_autoais(file_path, output_path, batch_size=8)
 
-    # infer_autoais(file_path, subfolder, batch_size=8)
+    else:
+        print('target_folder: ', path)
 
-    print('target_folder: ', path)
-
-    for subfolder in os.listdir(path):
-        subfolder_path = os.path.join(path, subfolder)
-        file_name = subfolder + '_withModelAnswer.csv'
-        file_path = os.path.join(subfolder_path, file_name)
-        # Check if the file exists
-        if not os.path.exists(file_path):
-            print('File does not exist: ', file_path)
-        else:
-            if setting == 'DEFAULT' and subfolder == 'doc2dial_1000_top1':
-                print('Skip: ', subfolder)
-                continue
-            if setting == 'DEFAULT' and subfolder == 'doc2dial_500_top5':
-                print('Skip: ', subfolder)
-                continue
-            if setting == 'DEFAULT' and subfolder == 'DEFAULT':
-                print('Skip: ', subfolder)
-                continue
-
-            output_path = os.path.join(subfolder_path, 'eval.csv')
-            if test_mode:
-                print('Output path should be: ', output_path)
-            # infer_autoais(file_path, subfolder, batch_size=8)
+        for subfolder in os.listdir(path):
+            subfolder_path = os.path.join(path, subfolder)
+            file_name = subfolder + '_withModelAnswer.csv'
+            file_path = os.path.join(subfolder_path, file_name)
+            # Check if the file exists
+            if not os.path.exists(file_path):
+                print('File does not exist: ', file_path)
             else:
-                # record current time 
-                print('Subfolder: ', subfolder)
-                infer_autoais(file_path, output_path, batch_size=8)
+                if setting == 'DEFAULT' and subfolder == 'doc2dial_1000_top1':
+                    print('Skip: ', subfolder)
+                    continue
+                if setting == 'DEFAULT' and subfolder == 'doc2dial_500_top5':
+                    print('Skip: ', subfolder)
+                    continue
+                if setting == 'DEFAULT' and subfolder == 'DEFAULT':
+                    print('Skip: ', subfolder)
+                    continue
+
+                output_path = os.path.join(subfolder_path, 'eval.csv')
+                if test_mode:
+                    print('Output path should be: ', output_path)
+                # infer_autoais(file_path, subfolder, batch_size=8)
+                else:
+                    # record current time 
+                    print('Subfolder: ', subfolder)
+                    infer_autoais(file_path, output_path, batch_size=8)
 
 
   
