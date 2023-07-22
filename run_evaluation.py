@@ -124,7 +124,7 @@ def eval(df, qa_df, doc2dial_doc, test=False, test_num=1, eval_id=None):
     
     eval_df.to_csv(output_path, index=False)
 
-@timeit
+
 def infer_autoais(path, output_path, batch_size, *args, **kwargs):
     """
     
@@ -143,7 +143,7 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
     df = pd.DataFrame(columns=['question', 'answer', 'model_answer', 'true_ref_str', 'retrived_doc', 'answer_f1', 'answer_prec', 'answer_recall', 'autoais_retrevied(model_answer)', 'att_f1', 'att_prec', 'att_recall', 'autoais_true_answer', 'ref_range'])
 
     tokenizer = T5Tokenizer.from_pretrained(AUTOAIS, legacy=False)
-    model = T5ForConditionalGeneration.from_pretrained(AUTOAIS, device_map="auto")
+    model = T5ForConditionalGeneration.from_pretrained(AUTOAIS)
     print('model loaded')
     # AutoModelForSeq2SeqLM.from_pretrained(AUTOAIS, device_map="auto")
 
@@ -250,9 +250,9 @@ if __name__ == "__main__":
     if test_mode:
         print('Test mode')
         file_path = 'data/doc2dial/TEST/test_withModelAnswer.csv'
-        output_path = 'data/doc2dial/TEST/eval.csv'
+        output_path = 'data/doc2dial/TEST/eval_CPU.csv'
 
-        infer_autoais(file_path, output_path, batch_size=8)
+        infer_autoais(file_path, output_path, batch_size=1)
 
     else:
         print('target_folder: ', path)

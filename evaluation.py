@@ -44,13 +44,14 @@ def infer_autoais(example, tokenizer, model):
   example["autoais"] = inference
   return inference
 
+@timeit
 def infer_autoais_batch(questions, answers, refs, tokenizer, model):
   example_list = format_for_autoais_batch(questions, answers, refs)
 
   #batch inference
   input_ids = tokenizer(example_list, return_tensors="pt", padding=True, truncation=True, max_length=1024)
 
-  outputs = model.generate(input_ids['input_ids'], attention_mask=input_ids['attention_mask'])
+  outputs = model.generate(input_ids['input_ids'], attention_mask=input_ids['attention_mask'], max_new_tokens=512)
 
   results = tokenizer.batch_decode(outputs, skip_special_tokens=True)     
 
