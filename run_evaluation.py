@@ -279,6 +279,8 @@ if __name__ == "__main__":
                     print('Skip: ', subfolder)
                     continue
                 if setting == 'fid' and subfolder == 'fid_500_top1_new':
+                    print('Skip: ', subfolder)
+                    continue
 
                 output_path = os.path.join(subfolder_path, 'eval.csv')
                 if test_mode:
