@@ -44,7 +44,7 @@ def infer_autoais(example, tokenizer, model):
   example["autoais"] = inference
   return inference
 
-@timeit
+
 def infer_autoais_batch(questions, answers, refs, tokenizer, model):
   example_list = format_for_autoais_batch(questions, answers, refs)
 

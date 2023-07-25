@@ -124,7 +124,7 @@ def eval(df, qa_df, doc2dial_doc, test=False, test_num=1, eval_id=None):
     
     eval_df.to_csv(output_path, index=False)
 
-
+@timeit
 def infer_autoais(path, output_path, batch_size, *args, **kwargs):
     """
     
@@ -234,12 +234,13 @@ def run_model_parallel(demo_fn, world_size):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, default='DEFAULT', help='load config settings')
+    parser.add_argument('-c', '--config', type=str, default='DEFAULT', help='load config settings')
     parser.add_argument('--path', type=str, help='path to model folder')
     parser.add_argument('-t', '--test', action='store_true', help='run in test mode')
 
     args = parser.parse_args()
     setting = args.config
+    print('setting: ', setting)
     test_mode = args.test
 
     config_object = ConfigParser()
