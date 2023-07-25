@@ -3,6 +3,7 @@ import logging
 import torch
 import os
 import pandas as pd
+import random
 from configparser import ConfigParser
 
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
@@ -14,23 +15,34 @@ from QAModel import local_answer_model
 
 
 
-def run_RTR_Model(data, qa_model_name, batch_size, output_path, test_mode=False):
+def run_RTR_Model(data, qa_model_name, batch_size, output_path, test_mode=False, **kwargs):
     #csv_file = 'data/doc2dial/qa_train_dmv.csv'
+    use_cuda = kwargs.get('use_cuda', False)
+    split_num = kwargs.get('split_num', None)
 
     if 'doc2dial' in data_path:
         dataset = doc2dialDataset(data)
     if 'openqa' in data_path:
         dataset = OpenQADataset(data)
+
+    #[ ] check this part tomorrow
+    if split_num:
+        split_size = int(split_num * len(dataset))
+        mask = [random.randint(0, len(dataset)) for _ in range(split_size)]
     
     # output_path = data_path.replace('withRefs', 'withModelAnswer')
     df = pd.DataFrame(columns=['question', 'answer', 'model_answer', 'ref', 'retrived_doc', 'doc_id', 'dial_id'])
     # [x] pending question,answer,ref,passage(context),doc_id
 
     print('Info: qa_model_name: {} , batch_size: {}, size: {}'.format(qa_model_name, batch_size, len(dataset)))
+    if mask:
+        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, sampler=mask)
+    else:
+        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+    #############################################################################
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = 'cuda' if torch.cuda.is_available() and use_cuda else 'cpu'
 
     model = AutoModelForSeq2SeqLM.from_pretrained(qa_model_name).to(device)
     if qa_model_name == 'Intel/fid_flan_t5_base_nq':
@@ -69,14 +81,16 @@ if __name__ == "__main__":
     logging.info("Start Running")
 
     parser = argparse.ArgumentParser()
+    parser.add_argument('-w', '--which', type=str, default='config.ini', help='which config settings should be load' )
     parser.add_argument('--config', type=str, default='DEFAULT', help='load config settings')
     parser.add_argument('-t', '--test', action='store_true', help='run in test mode')
     
     args = parser.parse_args()
+    which = args.which
     setting = args.config
 
     config_object = ConfigParser()
-    config_object.read("config.ini")
+    config_object.read(which) #[ ] check this part tomorrow
     userinfo = config_object[setting]
     test = args.test
 
@@ -129,4 +143,4 @@ if __name__ == "__main__":
                 test_mode=test)
         # print('Created file with reference')
     print('Running QA model')
-    run_RTR_Model(result_df, qa_model_name, batch_size=16, output_path=output_path, test_mode=test)
+    run_RTR_Model(result_df, qa_model_name, batch_size=16, output_path=output_path, test_mode=test, use_cuda=True)

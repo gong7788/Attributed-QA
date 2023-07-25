@@ -7,7 +7,6 @@ from langchain.vectorstores import FAISS
 
 import embedding
 from RTRBaseline import load_doc_file, load_qa_file, seaerch_doc, find_pre_next_doc
-from embedding import embedding
 from utils import get_title, timeit
 
 

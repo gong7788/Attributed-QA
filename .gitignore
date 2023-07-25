@@ -139,7 +139,7 @@ data/doc2dial/t5*
 data/doc2dial/Train_dataset
 data/doc2dial/test.csv
 data/doc2dial/failed_doc_ids*.csv
-data/doc2dial/qa_*.csv
+data/doc2dial/qa_train_dmv_withRefs.csv
 
 data/openqa/
 /.vscode
