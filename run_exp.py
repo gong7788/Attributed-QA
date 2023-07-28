@@ -23,22 +23,15 @@ def run_RTR_Model(data, qa_model_name, batch_size, output_path, test_mode=False,
     if 'doc2dial' in data_path:
         dataset = doc2dialDataset(data)
     if 'openqa' in data_path:
-        dataset = OpenQADataset(data)
-
-    #[ ] check this part tomorrow
-    if split_num:
-        split_size = int(split_num * len(dataset))
-        mask = [random.randint(0, len(dataset)) for _ in range(split_size)]
+        raise ValueError('Not this dataset')
     
     # output_path = data_path.replace('withRefs', 'withModelAnswer')
     df = pd.DataFrame(columns=['question', 'answer', 'model_answer', 'ref', 'retrived_doc', 'doc_id', 'dial_id'])
     # [x] pending question,answer,ref,passage(context),doc_id
 
     print('Info: qa_model_name: {} , batch_size: {}, size: {}'.format(qa_model_name, batch_size, len(dataset)))
-    if mask:
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, sampler=mask)
-    else:
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
     #############################################################################
 

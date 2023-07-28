@@ -126,14 +126,15 @@ def eval(df, qa_df, doc2dial_doc, test=False, test_num=1, eval_id=None):
 
 @timeit
 def infer_autoais(path, output_path, batch_size, *args, **kwargs):
-    """
-    
-    """
     # check path form
     if not path.endswith('_withModelAnswer.csv'):
         raise ValueError('File path is not correct')
     if not os.path.exists(path):
         raise ValueError('File path does not exist')
+    
+    cnt = 0
+    if 'top5' in output_path and cnt == 0:
+        print('check point will work')
 
     dataset = doc2dialEvalDataset(path)
     print('size: ', len(dataset))
@@ -157,6 +158,7 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
     # retrieved_doc_range = first_batch['retrieved_doc_position']
 
     for batch in dataloader:
+        cnt += len(batch)
     #     # question,answer,model_answer,ref,retrived_doc,doc_id
         questions = batch['question']
         answers = batch['answer']
@@ -217,7 +219,13 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
                                 att_recall[i],
                                 autoais_true_answer[i],
                                 true_ref_range[i]]
-    #[x] shift left one tag, write out should be outside of the loop
+        
+        #save checkpoint
+        if 'top5' in output_path and cnt % 200 == 0 and cnt != 0:
+            checkpoint = output_path.replace('eval', 'checkpoint')
+            df.to_csv(checkpoint, index=False)
+            print('checkpoint saved at: ', cnt)
+
     if test_mode:
         output_path = 'data/doc2dial/eval_test.csv'
         print('output save in : ', output_path)
@@ -261,10 +269,14 @@ if __name__ == "__main__":
         for subfolder in os.listdir(path):
             subfolder_path = os.path.join(path, subfolder)
             file_name = subfolder + '_withModelAnswer.csv'
+            eval_file = 'eval.csv'
             file_path = os.path.join(subfolder_path, file_name)
+            eval_path = os.path.join(subfolder_path, eval_file)
             # Check if the file exists
             if not os.path.exists(file_path):
                 print('File does not exist: ', file_path)
+            elif os.path.exists(eval_path):
+                print('Eval file exists: ', eval_path)
             else:
                 if setting == 'DEFAULT' and subfolder == 'doc2dial_1000_top1':
                     print('Skip: ', subfolder)
@@ -275,12 +287,18 @@ if __name__ == "__main__":
                 if setting == 'DEFAULT' and subfolder == 'DEFAULT':
                     print('Skip: ', subfolder)
                     continue
-                if setting == 'fid' and subfolder == 'fid_250_top1_new':
-                    print('Skip: ', subfolder)
-                    continue
-                if setting == 'fid' and subfolder == 'fid_500_top1_new':
-                    print('Skip: ', subfolder)
-                    continue
+                # if setting == 'fid' and subfolder == 'fid_250_top1_new':
+                #     print('Skip: ', subfolder)
+                #     continue
+                # if setting == 'fid' and subfolder == 'fid_500_top1_new':
+                #     print('Skip: ', subfolder)
+                #     continue
+                # if setting == 'fid' and subfolder == 'fid_500_top1':
+                #     print('Skip: ', subfolder)
+                #     continue
+                # if 'top5' in subfolder:
+                #     print('Skip: ', subfolder)
+                #     continue
 
                 output_path = os.path.join(subfolder_path, 'eval.csv')
                 if test_mode:
