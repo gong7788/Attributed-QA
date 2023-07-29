@@ -4,7 +4,6 @@ from langchain import HuggingFaceHub
 from langchain.chains.question_answering import load_qa_chain
 from langchain import OpenAI
 
-
 #read api from txt file
 api_path = 'api.txt'
 prompt_flan = "Please answer the following question.\n"
@@ -17,10 +16,11 @@ try:
         openai_api = lines[0]
         hf_api = lines[1]
 except FileNotFoundError:
-    raise ValueError("api.txt file not found")
+    print("api.txt file not found")
 
-os.environ["HUGGINGFACEHUB_API_TOKEN"] = hf_api
-os.environ["OPENAI_API_KEY"] = openai_api
+# os.environ["HUGGINGFACEHUB_API_TOKEN"] = hf_api
+# os.environ["OPENAI_API_KEY"] = openai_api
+
 
 def format_prompt_for_flan(question, docs, topk=5) -> str:
     """
@@ -71,7 +71,7 @@ def format_prompt(questions, retrieve_docs):
 
     return formatted_texts
 
-def local_answer_model(model, tokenizer, questions, retrieve_docs, device):
+def local_answer_model(model, tokenizer, questions, retrieve_docs, device, **kwargs):
     temps = format_prompt(questions, retrieve_docs)
 
     inputs = tokenizer([sentence for sentence in temps], 

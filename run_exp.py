@@ -9,12 +9,13 @@ from configparser import ConfigParser
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from torch.utils.data import DataLoader
 
-from dataloader import doc2dialDataset, OpenQADataset
+from dataloader import doc2dialDataset
 from models.retriever import retrieve_only
 from QAModel import local_answer_model
+from utils import timeit
 
 
-
+@timeit
 def run_RTR_Model(data, qa_model_name, batch_size, output_path, test_mode=False, **kwargs):
     #csv_file = 'data/doc2dial/qa_train_dmv.csv'
     use_cuda = kwargs.get('use_cuda', False)
@@ -32,8 +33,6 @@ def run_RTR_Model(data, qa_model_name, batch_size, output_path, test_mode=False,
     print('Info: qa_model_name: {} , batch_size: {}, size: {}'.format(qa_model_name, batch_size, len(dataset)))
 
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
-
-    #############################################################################
 
     device = 'cuda' if torch.cuda.is_available() and use_cuda else 'cpu'
 
@@ -66,7 +65,8 @@ def run_RTR_Model(data, qa_model_name, batch_size, output_path, test_mode=False,
         df.to_csv(output_path, index=False)
     else:
         print('Test mode, save to test.csv')
-        df.to_csv('data/doc2dial/TEST/test.csv', index=False)
+        df.to_csv('data/doc2dial/TEST/new_test.csv', index=False)
+
 
 if __name__ == "__main__":
     print("Run Experiment")
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     setting = args.config
 
     config_object = ConfigParser()
-    config_object.read(which) #[ ] check this part tomorrow
+    config_object.read(which)
     userinfo = config_object[setting]
     test = args.test
 
@@ -98,20 +98,24 @@ if __name__ == "__main__":
     topk = int(userinfo['topk'])
 
     directory = None
-    if 't5base' in setting and 'fid' not in setting:
-        directory = 'data/doc2dial/t5base/' + setting
-    elif 't5small' in setting and 'fid' not in setting:
-        directory = 'data/doc2dial/t5small/' + setting
-    elif 'fid' in setting:
-        directory = 'data/doc2dial/fid/' + setting
-    elif data_path == 'data/doc2dial/qa_test_dmv.csv':
-        directory = 'data/doc2dial/doc2dial_testset/' + setting
-    elif 'doc2dial' in data_path:
-        directory = 'data/doc2dial/' + setting
-    elif 'openqa' in data_path:
-        directory = 'data/openqa/' + setting
-    else:
-        raise ValueError('dataset should either doc2dial or openqa')
+    if which == 'config.ini':
+        if 't5base' in setting and 'fid' not in setting:
+            directory = 'data/doc2dial/t5base/' + setting
+        elif 't5small' in setting and 'fid' not in setting:
+            directory = 'data/doc2dial/t5small/' + setting
+        elif 'fid' in setting:
+            directory = 'data/doc2dial/fid/' + setting
+        elif data_path == 'data/doc2dial/qa_test_dmv.csv':
+            directory = 'data/doc2dial/doc2dial_testset/' + setting
+        elif 'doc2dial' in data_path:
+            directory = 'data/doc2dial/' + setting
+        elif 'openqa' in data_path:
+            directory = 'data/openqa/' + setting
+        else:
+            raise ValueError('dataset should either doc2dial or openqa')
+    elif which == 'config2.ini':
+        directory = 'data/doc2dial/new_dataset/' + setting
+        print('directory: ', directory)
 
     if not os.path.exists(directory):
         os.mkdir(directory)

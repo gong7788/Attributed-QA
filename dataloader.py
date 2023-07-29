@@ -24,10 +24,9 @@ class doc2dialDataset(Dataset):
 
         doc_file_span = self.doc_data['doc_data']['dmv'][self.data.loc[idx, 'doc_id']]['spans']
         ll = [doc_file_span[i] for i in refs_ID]
-        print(ll)
 
         true_ref_string = [term['text_sp'] for term in ll]
-        concatenated_string = ' '.join(string for sublist in true_ref_string for string in sublist)
+        concatenated_string = ''.join(string for sublist in true_ref_string for string in sublist)
 
         sample = {'question': self.data.loc[idx, 'question'].replace('##', '\n'),
                   'answer': self.data.loc[idx, 'answer'].replace('##', '\n'),
