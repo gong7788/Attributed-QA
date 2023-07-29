@@ -23,6 +23,7 @@ def run_RTR_Model(data, qa_model_name, batch_size, output_path, test_mode=False,
 
     if 'doc2dial' in data_path:
         dataset = doc2dialDataset(data)
+        print('size of dataset: {}'.format(len(dataset)))
     if 'openqa' in data_path:
         raise ValueError('Not this dataset')
     
@@ -89,7 +90,11 @@ if __name__ == "__main__":
 
     logging.info('Running experiment with config: {}'.format(setting))
 
-    data_path = userinfo['data_path']
+    if which == 'config2.ini':
+        data_path = 'data/doc2dial/new_dataset/train_set.csv'
+    else:
+        data_path = userinfo['data_path']
+    
     chunk_size = int(userinfo['chunk_size'])
     chunk_overlap = int(userinfo['chunk_overlap'])
     embedding_model = userinfo['embedding_model']
@@ -115,7 +120,6 @@ if __name__ == "__main__":
             raise ValueError('dataset should either doc2dial or openqa')
     elif which == 'config2.ini':
         directory = 'data/doc2dial/new_dataset/' + setting
-        print('directory: ', directory)
 
     if not os.path.exists(directory):
         os.mkdir(directory)
