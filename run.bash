@@ -1,6 +1,6 @@
 #!/bin/bash
 
-config_file="config.ini"
+config_file="config2.ini"
 python_script="run_exp.py"
 
 # Get section names from the config file
@@ -13,7 +13,8 @@ for section in $sections; do
         echo "Running section: $section"
 
   # Run the Python script with the section name as an argument
-      python3 "$python_script" --config "$section"
+      python3 "$python_script" --config "$section" --which "$config_file"
+    # echo "python3 $python_script --config $section --which $config_file"
 
     echo  # Add a newline for separation between sections
     # fi

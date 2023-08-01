@@ -127,7 +127,7 @@ if __name__ == "__main__":
     # if file exists
     # save_path = directory + '/'+ setting +'_withRefs.csv'
     # output_path = save_path.replace('withRefs', 'withModelAnswer')
-    output_path = directory + '/'+ setting +'_withModelAnswer.csv'
+    output_path = directory + '/'+ setting +'_ModelAnswer.csv'
 
     # if os.path.exists(output_path):
     #     print('file exists, skip')
