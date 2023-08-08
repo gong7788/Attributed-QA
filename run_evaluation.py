@@ -298,9 +298,9 @@ if __name__ == "__main__":
                 # if setting == 'fid' and subfolder == 'fid_500_top1':
                 #     print('Skip: ', subfolder)
                 #     continue
-                if 'top5' in subfolder:
-                    print('Skip: ', subfolder)
-                    continue
+                # if 'top5' in subfolder:
+                #     print('Skip: ', subfolder)
+                #     continue
 
                 output_path = os.path.join(subfolder_path, 'eval.csv')
                 if test_mode:
