@@ -20,6 +20,7 @@ def run_RTR_Model(data, qa_model_name, batch_size, output_path, test_mode=False,
     #csv_file = 'data/doc2dial/qa_train_dmv.csv'
     use_cuda = kwargs.get('use_cuda', False)
     split_num = kwargs.get('split_num', None)
+    flag = True
 
     if 'doc2dial' in data_path:
         dataset = doc2dialDataset(data)
@@ -32,10 +33,12 @@ def run_RTR_Model(data, qa_model_name, batch_size, output_path, test_mode=False,
     # [x] pending question,answer,ref,passage(context),doc_id
 
     print('Info: qa_model_name: {} , batch_size: {}, size: {}'.format(qa_model_name, batch_size, len(dataset)))
+    cnt = 0
 
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
     device = 'cuda' if torch.cuda.is_available() and use_cuda else 'cpu'
+    print('device: {}'.format(device))
 
     model = AutoModelForSeq2SeqLM.from_pretrained(qa_model_name).to(device)
     if qa_model_name == 'Intel/fid_flan_t5_base_nq':
@@ -44,6 +47,8 @@ def run_RTR_Model(data, qa_model_name, batch_size, output_path, test_mode=False,
         tokenizer = AutoTokenizer.from_pretrained(qa_model_name)
 
     for batch in dataloader:
+        # cnt += len(batch)
+        # print(cnt)
         # Perform your training/inference operations on the batch
         questions = batch['question']
         answers = batch['answer']
@@ -62,6 +67,13 @@ def run_RTR_Model(data, qa_model_name, batch_size, output_path, test_mode=False,
                                 retrieve_docs[idx],
                                 doc_ids[idx],
                                 dial_ids[idx]]
+        
+        # if cnt > 500 and flag:
+        #     flag = False
+        #     print("save point at index: {}".format(cnt))
+        #     checkpoint_path = output_path.replace('_ModelAnswer.csv', '_checkpoint.csv')
+        #     df.to_csv(checkpoint_path, index=False)
+            
     if not test_mode:
         df.to_csv(output_path, index=False)
     else:
@@ -91,7 +103,7 @@ if __name__ == "__main__":
     logging.info('Running experiment with config: {}'.format(setting))
 
     if which == 'config2.ini':
-        data_path = 'data/doc2dial/new_dataset/train_set.csv'
+        data_path = 'data/doc2dial/new_dataset/train_set_norandom.csv'
     else:
         data_path = userinfo['data_path']
     
@@ -127,7 +139,7 @@ if __name__ == "__main__":
     # if file exists
     # save_path = directory + '/'+ setting +'_withRefs.csv'
     # output_path = save_path.replace('withRefs', 'withModelAnswer')
-    output_path = directory + '/'+ setting +'_withModelAnswer.csv'
+    output_path = directory + '/'+ setting +'_ModelAnswer.csv'
 
     # if os.path.exists(output_path):
     #     print('file exists, skip')

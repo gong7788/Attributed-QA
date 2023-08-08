@@ -17,6 +17,7 @@ from utils import timeit
 
 # failed_doc_ids = [645,1448,1523,1573,8159]
 AUTOAIS = "google/t5_xxl_true_nli_mixture"
+t5base = "google/flan-t5-base"
 
 
 def read_data(data_paths):
@@ -133,6 +134,7 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
         raise ValueError('File path does not exist')
     
     cnt = 0
+    flag = True
     if 'top5' in output_path and cnt == 0:
         print('check point will work')
 

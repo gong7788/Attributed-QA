@@ -27,15 +27,21 @@ class doc2dialDataset(Dataset):
 
         true_ref_string = [term['text_sp'] for term in ll]
         concatenated_string = ''.join(string for sublist in true_ref_string for string in sublist)
+        string_list = '##'.join(string for string in true_ref_string)
 
-        sample = {'question': self.data.loc[idx, 'question'].replace('##', '\n'),
-                  'answer': self.data.loc[idx, 'answer'].replace('##', '\n'),
-                  'ref': self.data.loc[idx, 'ref'],
-                  'ref_string': concatenated_string,
-                  'retrived_doc': self.data.loc[idx, 'passage(context)'],
-                  'doc_id': self.data.loc[idx, 'doc_id'],
-                  'dial_id': self.data.loc[idx, 'dial_id']
-                }
+        try: 
+            sample = {'question': self.data.loc[idx, 'question'],
+                    'answer': self.data.loc[idx, 'answer'],
+                    'ref': self.data.loc[idx, 'ref'],
+                    'ref_string': concatenated_string,
+                    'string_list': string_list,
+                    'retrived_doc': self.data.loc[idx, 'passage(context)'],
+                    'doc_id': self.data.loc[idx, 'doc_id'],
+                    'dial_id': self.data.loc[idx, 'dial_id']
+                    }
+        except:
+            raise ValueError('Error in getting item', self.data.loc[idx, 'dial_id'])
+
         return sample
 
 class OpenQADataset(Dataset):

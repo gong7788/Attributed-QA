@@ -84,6 +84,7 @@ def local_answer_model(model, tokenizer, questions, retrieve_docs, device, **kwa
     output_sequences = model.generate(
         input_ids=inputs['input_ids'],
         attention_mask=inputs['attention_mask'],
+        max_new_tokens=512
     )
 
     model_answers = tokenizer.batch_decode(output_sequences, skip_special_tokens=True)

@@ -75,21 +75,25 @@ def retrieve_openqa(batch_question, batch_paragraphs, true_refs, model='sentence
 
     return batch_result, batch_idx
 
-def retrieve_only(data_path, cs, c_overlap, save_dir, embedding_model='sentence-transformers/gtr-t5-base', new_method=False, topk=1, test_mode=False):
+@timeit
+def retrieve_only(data_path, cs, c_overlap, save_dir, embedding_model='sentence-transformers/gtr-t5-base', new_method=False, topk=1, test_mode=False, **kwargs):
     last_doc_name = ''
     #question,answer,ref,doc_id,dial_id
     result_df = pd.DataFrame(columns=['question', 'answer', 'ref', 'passage(context)', 'doc_id', 'dial_id'])
     total_split_docs = 0
     cnt = 0
+    data_max_len = kwargs.get('max_len', 1000)
     failed_doc_ids = []
     doc2dial_doc = load_doc_file('data/doc2dial/doc2dial_doc.json')
     
     qa_set = pd.read_csv(data_path)
+    print('data len: ', len(qa_set))
 
     for index, row in qa_set.iterrows():
         if test_mode and index == 10:
             break
-
+        if cnt == data_max_len:
+            break
         doc_text = doc2dial_doc['doc_data']['dmv'][row['doc_id']]['doc_text']
 
         #get embeddings
