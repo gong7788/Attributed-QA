@@ -82,7 +82,7 @@ def run_RTR_Model(data, qa_model_name, batch_size, output_path, test_mode=False,
 
 
 if __name__ == "__main__":
-    print("Run Experiment")
+    print("Running run_exp.py...")
     logging.basicConfig(level=logging.WARNING)
     logging.info("Start Running")
 
@@ -90,6 +90,9 @@ if __name__ == "__main__":
     parser.add_argument('-w', '--which', type=str, default='config.ini', help='which config settings should be load' )
     parser.add_argument('--config', type=str, default='DEFAULT', help='load config settings')
     parser.add_argument('-t', '--test', action='store_true', help='run in test mode')
+    parser.add_argument('-s', '--save_dir', type=str, default=None, help='save directory'
+    )
+    parser.add_argument('-f', '--using_fid', action='store_true', help='using fid model')
     
     args = parser.parse_args()
     which = args.which
@@ -99,6 +102,7 @@ if __name__ == "__main__":
     config_object.read(which)
     userinfo = config_object[setting]
     test = args.test
+    using_fid = args.using_fid
 
     logging.info('Running experiment with config: {}'.format(setting))
 
@@ -110,7 +114,7 @@ if __name__ == "__main__":
     chunk_size = int(userinfo['chunk_size'])
     chunk_overlap = int(userinfo['chunk_overlap'])
     embedding_model = userinfo['embedding_model']
-    qa_model_name = userinfo['qa_model']
+    qa_model_name = userinfo['qa_model'] if not using_fid else 'Intel/fid_flan_t5_base_nq'
     new_method = userinfo['new_method']
     topk = int(userinfo['topk'])
 
@@ -130,8 +134,10 @@ if __name__ == "__main__":
             directory = 'data/openqa/' + setting
         else:
             raise ValueError('dataset should either doc2dial or openqa')
-    elif which == 'config2.ini':
+    elif which == 'config2.ini' and not args.save_dir:
         directory = 'data/doc2dial/new_dataset/' + setting
+    elif args.save_dir:
+        directory = args.save_dir + '/' + setting
 
     if not os.path.exists(directory):
         os.mkdir(directory)
@@ -144,6 +150,7 @@ if __name__ == "__main__":
     # if os.path.exists(output_path):
     #     print('file exists, skip')
     # else:
+
     print('Info: seting: {}, test_mode: {}, chunk_size: {}, chunk_overlap: {}, qa_model: {}, embedding_model: {}, new_method: {}, topk: {}'.format(setting, args.test, chunk_size, chunk_overlap, qa_model_name, embedding_model, new_method, topk))
     print('Running retriever')
     result_df = retrieve_only(data_path, 

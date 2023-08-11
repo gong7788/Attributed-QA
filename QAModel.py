@@ -9,14 +9,14 @@ api_path = 'api.txt'
 prompt_flan = "Please answer the following question.\n"
 prompt_openai = "Please answer the following question using the given documents only.\n"
 
-try:
-    with open(api_path, 'r') as f:
-        lines = f.readlines()
-        lines = [line.strip().split(":")[1] for line in lines]
-        openai_api = lines[0]
-        hf_api = lines[1]
-except FileNotFoundError:
-    print("api.txt file not found")
+# try:
+#     with open(api_path, 'r') as f:
+#         lines = f.readlines()
+#         lines = [line.strip().split(":")[1] for line in lines]
+#         openai_api = lines[0]
+#         hf_api = lines[1]
+# except FileNotFoundError:
+#     print("api.txt file not found")
 
 # os.environ["HUGGINGFACEHUB_API_TOKEN"] = hf_api
 # os.environ["OPENAI_API_KEY"] = openai_api
