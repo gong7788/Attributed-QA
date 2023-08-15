@@ -93,10 +93,15 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--save_dir', type=str, default=None, help='save directory'
     )
     parser.add_argument('-f', '--using_fid', action='store_true', help='using fid model')
+    parser.add_argument('-r', '--random', action='store_true', help='randomly select attribution')
     
     args = parser.parse_args()
     which = args.which
     setting = args.config
+    rand = args.random
+    if rand:
+        which = 'random.ini'
+        print('Randomly select attribution')
 
     config_object = ConfigParser()
     config_object.read(which)
@@ -106,7 +111,7 @@ if __name__ == "__main__":
 
     logging.info('Running experiment with config: {}'.format(setting))
 
-    if which == 'config2.ini':
+    if which == 'config2.ini' or which == 'random.ini':
         data_path = 'data/doc2dial/new_dataset/train_set_norandom.csv'
     else:
         data_path = userinfo['data_path']
@@ -138,6 +143,8 @@ if __name__ == "__main__":
         directory = 'data/doc2dial/new_dataset/' + setting
     elif args.save_dir:
         directory = args.save_dir + '/' + setting
+    elif which == 'random.ini':
+        directory = 'data/doc2dial/random/' + setting
 
     if not os.path.exists(directory):
         os.mkdir(directory)
@@ -146,7 +153,8 @@ if __name__ == "__main__":
     # save_path = directory + '/'+ setting +'_withRefs.csv'
     # output_path = save_path.replace('withRefs', 'withModelAnswer')
     output_path = directory + '/'+ setting +'_ModelAnswer.csv'
-
+    
+    print('output path: {}'.format(output_path))
     # if os.path.exists(output_path):
     #     print('file exists, skip')
     # else:
@@ -160,7 +168,8 @@ if __name__ == "__main__":
                 new_method=False,
                 embedding_model=embedding_model,
                 topk=topk,
-                test_mode=test)
+                test_mode=test,
+                random=rand)
         # print('Created file with reference')
     print('Running QA model')
     run_RTR_Model(result_df, qa_model_name, batch_size=16, output_path=output_path, test_mode=test, use_cuda=True)

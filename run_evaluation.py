@@ -185,7 +185,7 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
                 ans_prec.append(prec)
                 ans_recall.append(recall)
             except:
-                print('cnt: ', i)
+                # print('cnt: ', i)
                 ans_f1.append(0)
                 ans_prec.append(0)
                 ans_recall.append(0)
@@ -200,7 +200,7 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
                 att_prec.append(prec)
                 att_recall.append(recall)
             except:
-                print('cnt: ', i)
+                # print('cnt: ', i)
                 att_f1.append(0)
                 att_prec.append(0)
                 att_recall.append(0)
@@ -227,10 +227,10 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
                                 true_ref_range[i]]
         
         #save checkpoint
-        if 'top5' in output_path and cnt % 200 == 0 and cnt != 0:
-            checkpoint = output_path.replace('eval', 'checkpoint')
-            df.to_csv(checkpoint, index=False)
-            print('checkpoint saved at: ', cnt)
+        # if 'top5' in output_path and cnt % 200 == 0 and cnt != 0:
+        #     checkpoint = output_path.replace('eval', 'checkpoint')
+        #     df.to_csv(checkpoint, index=False)
+        #     print('checkpoint saved at: ', cnt)
 
     if test_mode:
         output_path = 'data/doc2dial/eval_test.csv'
