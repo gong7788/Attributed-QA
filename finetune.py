@@ -23,6 +23,10 @@ from evaluation import infer_autoais_batch, format_for_autoais_batch
 
 
 def run(**kwargs):
+    test = kwargs.get('test', False)
+    if test:
+        pass 
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-base", legacy=False)
     model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-base")
@@ -54,29 +58,41 @@ def run(**kwargs):
                 retrived_docs = batch['retrived_doc']
                 labels = batch['label']
                 print('labels: ', labels)
-                labels = tokenizer(labels).input_ids
-                labels = torch.tensor(labels).to(device).squeeze().float()
+                labels = tokenizer(labels,
+                                padding="longest",
+                                return_tensors="pt").input_ids
+                
+                labels[labels == tokenizer.pad_token_id] = -100
+                labels = torch.tensor(labels).to(device)
                 print('labels: ', labels)
 
                 example_list = format_for_autoais_batch(questions, model_answer, retrived_docs)
 
                 optimizer.zero_grad()
 
-                input_ids = tokenizer(example_list, return_tensors="pt", padding=True, truncation=True, max_length=1024)
+                input_ids = tokenizer(example_list, 
+                                      return_tensors="pt", 
+                                      padding=True, 
+                                      truncation=True, 
+                                      max_length=1024)
                 input_ids = {k: v.to(model.device) for k, v in input_ids.items()}
 
-                outputs = model.generate(input_ids['input_ids'], attention_mask=input_ids['attention_mask'], max_new_tokens=512)
+                # outputs = model.generate(input_ids['input_ids'], attention_mask=input_ids['attention_mask'], max_new_tokens=512)
+                outputs = model(input_ids['input_ids'], attention_mask=input_ids['attention_mask'], labels=labels)
+                
+                loss = outputs.loss
+                print('loss: ', loss.item())
 
-                results = tokenizer.batch_decode(outputs, skip_special_tokens=True)  
+                # results = tokenizer.batch_decode(outputs, skip_special_tokens=True)  
 
-                print('results: ', results)
-                results_tokens = tokenizer(results).input_ids
-                print('results_tokens: ', results_tokens)
-                results_tokens = torch.tensor(results_tokens).squeeze().to(device).float()
+                # print('results: ', results)
+                # results_tokens = tokenizer(results).input_ids
+                # print('results_tokens: ', results_tokens)
+                # results_tokens = torch.tensor(results_tokens).to(device).float().squeeze(0)
 
-                print('results_tokens: ', results_tokens)
+                # print('results_tokens: ', results_tokens)
 
-                loss = loss_fn(outputs, labels)
+                # loss = loss_fn(outputs, labels)
                 loss.backward()
                 optimizer.step()
 
@@ -88,4 +104,4 @@ def run(**kwargs):
     torch.save(model.state_dict(), 'model/flant5_ft.pth')
 
 if __name__ == "__main__":
-    run()
+    run(test=True)
