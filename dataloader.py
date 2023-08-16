@@ -120,7 +120,21 @@ class doc2dialEvalDataset(Dataset):
             else:
                 print("The data has a mixed structure of strings and lists.")
                 return None
-        
+
+
+class ExtendedDoc2dialEvalDataset(doc2dialEvalDataset):
+    # since we only label the 'data/doc2dial/new_dataset/DEFAULT/DEFAULT_ModelAnswer.csv' only 
+    def __init__(self, csv_file, label_csv):
+        super().__init__(csv_file)
+        self.label_data = pd.read_csv(label_csv)
+    
+    def __getitem__(self, idx):
+        sample = super().__getitem__(idx) #call parent class method
+        sample['label'] = self.label_data.loc[idx, 'label']
+
+        return sample
+
+
 # csv_file = 'data/doc2dial/qa_train_dmv.csv'
 # dataset = doc2dialDataset(csv_file)
 # batch_size = 16

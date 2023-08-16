@@ -20,10 +20,7 @@ def timeit(func):
 def get_title(passage):
     return passage.split('\n')[0]
 
-def cos_single(sentence1, sentence2):
-    model_name = 'sentence-transformers/gtr-t5-base'
-    model = SentenceTransformer(model_name, device='cuda')
-
+def cos_single(model, sentence1, sentence2):
     if isinstance(sentence1, pd.Series):
         sentence1 = sentence1.tolist()
     if isinstance(sentence2, pd.Series):

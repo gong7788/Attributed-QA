@@ -2,8 +2,9 @@
 
 # List of folders to iterate through
 folders=(
-    "data/doc2dial/new_dataset"
-    "data/doc2dial/new_fid"
+    "data/doc2dial/random"
+    # "data/doc2dial/new_dataset"
+    # "data/doc2dial/new_fid"
     # Add more folder paths here
 )
 python_script="extra_eval.py"

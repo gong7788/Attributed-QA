@@ -50,6 +50,7 @@ def infer_autoais_batch(questions, answers, refs, tokenizer, model):
 
   #batch inference
   input_ids = tokenizer(example_list, return_tensors="pt", padding=True, truncation=True, max_length=1024)
+  input_ids = {k: v.to(model.device) for k, v in input_ids.items()}
 
   outputs = model.generate(input_ids['input_ids'], attention_mask=input_ids['attention_mask'], max_new_tokens=512)
 

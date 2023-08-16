@@ -3,9 +3,11 @@ import pandas as pd
 import argparse
 from tqdm import tqdm
 from utils import timeit, cos_single
+import torch
 
 from nltk.translate.bleu_score import sentence_bleu
 from nltk.translate.bleu_score import SmoothingFunction
+from sentence_transformers import SentenceTransformer
 
 
 @timeit
@@ -58,6 +60,10 @@ def main(path, **kwargs):
         extra_eval.to_csv(os.path.join(subfolder_path, 'extra_eval.csv'), index=False)
 
 def compute_cos_sim(path, eval_file=None, **kwargs):
+
+    model_name = 'sentence-transformers/gtr-t5-base'
+    model = SentenceTransformer(model_name, device='cuda' if torch.cuda.is_available() else 'cpu')
+
     if os.path.exists(path):
         print('path exists: ', path)
 
@@ -74,8 +80,8 @@ def compute_cos_sim(path, eval_file=None, **kwargs):
         true_ref_string_list = chunk_df['true_ref_str'].fillna('')
         pred_refs_list = chunk_df['retrived_doc'].fillna('')
 
-        cos_sim_ref = cos_single(true_ref_string_list, pred_refs_list)
-        cos_sim_ans = cos_single(true_answer, model_answer)
+        cos_sim_ref = cos_single(model, true_ref_string_list, pred_refs_list)
+        cos_sim_ans = cos_single(model, true_answer, model_answer)
 
         for i in range(len(cos_sim_ref)):
             cos_sim.loc[len(cos_sim)] = [cos_sim_ref[i], cos_sim_ans[i]]
@@ -106,7 +112,7 @@ if __name__ == "__main__":
         eval_path = os.path.join(subfolder_path, eval_file)
         folders.append(eval_path)
 
-    # main(target_path, test = test_mode)
+    main(target_path, test = test_mode)
 
     for subfolder in folders:
         compute_cos_sim(subfolder)
