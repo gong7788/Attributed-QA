@@ -59,7 +59,7 @@ def run(**kwargs):
                 labels = batch['label']
                 print('labels: ', labels)
                 labels = tokenizer(labels,
-                                padding="longest",
+                                padding=True,
                                 return_tensors="pt").input_ids
                 
                 labels[labels == tokenizer.pad_token_id] = -100
@@ -70,29 +70,22 @@ def run(**kwargs):
 
                 optimizer.zero_grad()
 
-                input_ids = tokenizer(example_list, 
+                encoding = tokenizer(example_list, 
                                       return_tensors="pt", 
                                       padding=True, 
                                       truncation=True, 
                                       max_length=1024)
-                input_ids = {k: v.to(model.device) for k, v in input_ids.items()}
+                encoding = {k: v.to(model.device) for k, v in encoding.items()}
+
+                print('input_ids: ', encoding['input_ids'].shape)
 
                 # outputs = model.generate(input_ids['input_ids'], attention_mask=input_ids['attention_mask'], max_new_tokens=512)
-                outputs = model(input_ids['input_ids'], attention_mask=input_ids['attention_mask'], labels=labels)
-                
+                outputs = model(encoding['input_ids'], attention_mask=encoding['attention_mask'], labels=labels)
+                print('outputs: ', outputs.logits.shape)
+
                 loss = outputs.loss
                 print('loss: ', loss.item())
 
-                # results = tokenizer.batch_decode(outputs, skip_special_tokens=True)  
-
-                # print('results: ', results)
-                # results_tokens = tokenizer(results).input_ids
-                # print('results_tokens: ', results_tokens)
-                # results_tokens = torch.tensor(results_tokens).to(device).float().squeeze(0)
-
-                # print('results_tokens: ', results_tokens)
-
-                # loss = loss_fn(outputs, labels)
                 loss.backward()
                 optimizer.step()
 
