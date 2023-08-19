@@ -93,6 +93,7 @@ def compute_cos_sim(path, eval_file=None, **kwargs):
     progress_bar.close()
     cos_sim.to_csv(path.replace('eval.csv', 'cos_sim.csv'), index=False)
 
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
@@ -112,7 +113,9 @@ if __name__ == "__main__":
         eval_path = os.path.join(subfolder_path, eval_file)
         folders.append(eval_path)
 
-    main(target_path, test = test_mode)
+    # TODO: run attribution 
+    
+    # main(target_path, test = test_mode)
 
-    for subfolder in folders:
-        compute_cos_sim(subfolder)
+    # for subfolder in folders:
+    #     compute_cos_sim(subfolder)

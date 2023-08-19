@@ -1,9 +1,12 @@
 import datetime
 import time
 from nltk.translate.bleu_score import sentence_bleu
+from nltk.translate.bleu_score import SmoothingFunction
 from sentence_transformers import SentenceTransformer
 from sentence_transformers.util import cos_sim
 import pandas as pd
+import nltk
+import re
 
 def timeit(func):
     def wrapper(*args, **kwargs):
@@ -34,3 +37,28 @@ def cos_single(model, sentence1, sentence2):
 
     return similarity_score.to('cpu').detach().numpy()
 
+def extract_one_sentence(chunk, answer, method='BLEU'):
+    if re.match(r'\d. ', chunk) is not None:
+        # if chunk start with like '1. ', remove it
+        chunk = chunk[3:]
+
+    sentences = nltk.sent_tokenize(chunk)
+    best_sentence = '' 
+    best_score = 0
+
+    ref_tokens = nltk.word_tokenize(answer)
+    
+    if method == 'BLEU':
+        if len(sentences) == 1:
+            return sentences[0]
+        
+        chencherry = SmoothingFunction()
+        for sentence in sentences:
+            sentence_tokens = nltk.word_tokenize(sentence)
+            score = sentence_bleu([ref_tokens], sentence_tokens, smoothing_function=chencherry.method2)
+            
+            if score > best_score:
+                best_score = score
+                best_sentence = sentence
+
+    return best_sentence

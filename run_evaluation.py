@@ -1,6 +1,7 @@
 import datetime
 import pandas as pd
 import json
+import math
 
 from transformers import T5Tokenizer, T5ForConditionalGeneration
 import torch
@@ -10,7 +11,7 @@ import time
 import argparse
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-from dataloader import doc2dialEvalDataset
+from dataloader import doc2dialEvalDataset, attDataset
 from configparser import ConfigParser
 
 import evaluation
@@ -129,8 +130,8 @@ def eval(df, qa_df, doc2dial_doc, test=False, test_num=1, eval_id=None):
 @timeit
 def infer_autoais(path, output_path, batch_size, *args, **kwargs):
     # check path form
-    if not path.endswith('_withModelAnswer.csv') and not path.endswith('_ModelAnswer.csv'):
-        raise ValueError('File path is not correct')
+    # if not path.endswith('_withModelAnswer.csv') and not path.endswith('_ModelAnswer.csv'):
+    #     raise ValueError('File path is not correct')
     
     if not os.path.exists(path):
         raise ValueError('File path does not exist')
@@ -237,7 +238,90 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
         print('output save in : ', output_path)
     else:
         df.to_csv(output_path, index=False)
+        print('output save in : ', output_path)
 
+def infer_one_att(path, output_path, batch_size, *args, **kwargs):
+    if not os.path.exists(path):
+        # if file not exist, read checkpoint
+        raise ValueError('File path does not exist')
+
+    dataset = attDataset(path)
+    print('size: ', len(dataset))
+    # inference task, so shuffle is False
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+
+    df = pd.DataFrame(columns=['question', 'answer', 'model_answer', 'true_ref_str', 'attribution', 
+                               'answer_f1', 'answer_prec', 'answer_recall', 'autoais_retrevied(model_answer)', 
+                               'att_f1', 'att_prec', 'att_recall', 'autoais_true_answer'])
+
+    model_name = 'google/flan-t5-base'
+    tokenizer = T5Tokenizer.from_pretrained(model_name, legacy=False)
+    model = T5ForConditionalGeneration.from_pretrained(model_name)
+
+    print('model loaded')
+    for batch in tqdm(dataloader, desc="Processing batches", unit="batch"):
+        questions = batch['question']
+        answers = batch['answer']
+        # could be nan
+        model_answer = [temp if isinstance(temp, str) else '' for temp in batch['model_answer']]
+        # could be nan
+        attribution_ls = [temp if isinstance(temp, str) else '' for temp in batch['attribution']]
+        true_refs = [temp if isinstance(temp, str) else '' for temp in batch['ref_string'] ]
+        # retrieved_doc_range = batch['retrieved_doc_position']
+
+        # answer f1 
+        ans_f1 = []
+        ans_prec = []
+        ans_recall = []
+        for i in range(len(questions)):
+            try:
+                f1, prec, recall = evaluation.compute_f1(model_answer[i], answers[i], return_prec_recall=True)
+                ans_f1.append(f1)
+                ans_prec.append(prec)
+                ans_recall.append(recall)
+            except:
+                # print('cnt: ', i)
+                ans_f1.append(0)
+                ans_prec.append(0)
+                ans_recall.append(0)
+        # attribution f1
+        att_f1 = []
+        att_prec = []
+        att_recall = []
+        for i in range(len(questions)):
+            try:
+                f1, prec, recall = evaluation.compute_f1(attribution_ls[i], true_refs[i], return_prec_recall=True)
+                att_f1.append(f1)
+                att_prec.append(prec)
+                att_recall.append(recall)
+            except:
+                # print('cnt: ', i)
+                att_f1.append(0)
+                att_prec.append(0)
+                att_recall.append(0)
+
+        autoais_retrived = evaluation.infer_autoais_batch(questions, model_answer, attribution_ls, tokenizer, model)
+
+        # [x] another autoais for true refs -> need a function to get true refs ??? 
+        autoais_true_answer = evaluation.infer_autoais_batch(questions, answers, attribution_ls, tokenizer, model)
+
+        for i in range(len(questions)):
+            df.loc[len(df)] = [questions[i], 
+                                answers[i], 
+                                model_answer[i],
+                                true_refs[i], 
+                                attribution_ls[i], # attribution (one sentence)
+                                ans_f1[i],
+                                ans_prec[i],
+                                ans_recall[i],
+                                autoais_retrived[i], #autoais : does attribution infer model answer
+                                att_f1[i],
+                                att_prec[i],
+                                att_recall[i],
+                                autoais_true_answer[i], #autoais : does attribution infer true answer
+                                ]
+    
+    df.to_csv(output_path, index=False)
 
 def run_model_parallel(demo_fn, world_size):
     mp.spawn(demo_fn,
@@ -251,11 +335,13 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--config', type=str, default='DEFAULT', help='load config settings')
     # parser.add_argument('--path', type=str, help='path to model folder')
     parser.add_argument('-t', '--test', action='store_true', help='run in test mode')
+    parser.add_argument('-a', '--att', action='store_true', help='run in attribution mode')
 
     args = parser.parse_args()
     setting = args.config
-    print('setting: ', setting)
+
     test_mode = args.test
+    att_mode = args.att
 
     config_object = ConfigParser()
     config_object.read("config1.ini")
@@ -290,18 +376,18 @@ if __name__ == "__main__":
                 except:
                     print('File does not exist: ', file_path)
 
-            if os.path.exists(eval_path):
-                print('Eval file exists: ', eval_path)
-            else:
-                if setting == 'DEFAULT' and subfolder == 'doc2dial_1000_top1':
-                    print('Skip: ', subfolder)
-                    continue
-                if setting == 'DEFAULT' and subfolder == 'doc2dial_500_top5':
-                    print('Skip: ', subfolder)
-                    continue
-                if setting == 'DEFAULT' and subfolder == 'DEFAULT':
-                    print('Skip: ', subfolder)
-                    continue
+            # if os.path.exists(eval_path) and not att_mode:
+            #     print('Eval file exists: ', eval_path)
+            # else:
+            #     if setting == 'DEFAULT' and subfolder == 'doc2dial_1000_top1':
+            #         print('Skip: ', subfolder)
+            #         continue
+            #     if setting == 'DEFAULT' and subfolder == 'doc2dial_500_top5':
+            #         print('Skip: ', subfolder)
+            #         continue
+            #     if setting == 'DEFAULT' and subfolder == 'DEFAULT':
+            #         print('Skip: ', subfolder)
+            #         continue
                 # if setting == 'fid' and subfolder == 'fid_250_top1_new':
                 #     print('Skip: ', subfolder)
                 #     continue
@@ -314,15 +400,29 @@ if __name__ == "__main__":
                 # if 'top5' in subfolder:
                 #     print('Skip: ', subfolder)
                 #     continue
-
                 output_path = os.path.join(subfolder_path, 'eval.csv')
+
+
                 if test_mode:
                     print('Output path should be: ', output_path)
                 # infer_autoais(file_path, subfolder, batch_size=8)
-                else:
-                    # record current time 
-                    print('Subfolder: ', subfolder)
+                if att_mode:
+                    file_path = os.path.join(subfolder_path, 'attribution_.csv')
+                    print('file_path: ', file_path)
+                    output_path = os.path.join(subfolder_path, 'eval_one_att.csv')
+                    # print('file_path: ', file_path)
+                    # print('output_path: ', output_path)
+                    infer_one_att(file_path, output_path, batch_size=16)
+                elif '_new' in subfolder:
+                    # print('subfolder: ', subfolder_path)
+                    # print('output_path: ', output_path)
                     infer_autoais(file_path, output_path, batch_size=16)
+                else:
+                    continue
+                    # record current time 
+                    # print('Subfolder: ', subfolder)
+                    # infer_autoais(file_path, output_path, batch_size=16)
+                    
 
 
   

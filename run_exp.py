@@ -13,6 +13,7 @@ from dataloader import doc2dialDataset
 from models.retriever import retrieve_only
 from QAModel import local_answer_model
 from utils import timeit
+from tqdm import tqdm
 
 
 @timeit
@@ -38,7 +39,6 @@ def run_RTR_Model(data, qa_model_name, batch_size, output_path, test_mode=False,
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
     device = 'cuda' if torch.cuda.is_available() and use_cuda else 'cpu'
-    print('device: {}'.format(device))
 
     model = AutoModelForSeq2SeqLM.from_pretrained(qa_model_name).to(device)
     if qa_model_name == 'Intel/fid_flan_t5_base_nq':
@@ -46,9 +46,7 @@ def run_RTR_Model(data, qa_model_name, batch_size, output_path, test_mode=False,
     else:
         tokenizer = AutoTokenizer.from_pretrained(qa_model_name)
 
-    for batch in dataloader:
-        # cnt += len(batch)
-        # print(cnt)
+    for batch in tqdm(dataloader, desc='Batch', total=len(dataloader)):
         # Perform your training/inference operations on the batch
         questions = batch['question']
         answers = batch['answer']
@@ -56,6 +54,7 @@ def run_RTR_Model(data, qa_model_name, batch_size, output_path, test_mode=False,
         retrieve_docs = batch['retrived_doc']
         doc_ids = batch['doc_id']
         dial_ids = batch['dial_id']
+        cnt += len(questions)
 
         model_answers = local_answer_model(model, tokenizer, questions, retrieve_docs, device)
 
@@ -68,11 +67,11 @@ def run_RTR_Model(data, qa_model_name, batch_size, output_path, test_mode=False,
                                 doc_ids[idx],
                                 dial_ids[idx]]
         
-        # if cnt > 500 and flag:
-        #     flag = False
-        #     print("save point at index: {}".format(cnt))
-        #     checkpoint_path = output_path.replace('_ModelAnswer.csv', '_checkpoint.csv')
-        #     df.to_csv(checkpoint_path, index=False)
+
+        if cnt == 512 and '1000' in output_path and 'new' in output_path:
+            print("save point at index: {}".format(cnt))
+            checkpoint_path = '/'.join(output_path.split('/')[:-1]) + '/checkpoint.csv'
+            df.to_csv(checkpoint_path, index=False)
             
     if not test_mode:
         df.to_csv(output_path, index=False)
@@ -152,24 +151,24 @@ if __name__ == "__main__":
     # if file exists
     # save_path = directory + '/'+ setting +'_withRefs.csv'
     # output_path = save_path.replace('withRefs', 'withModelAnswer')
-    output_path = directory + '/'+ setting +'_ModelAnswer.csv'
+    output_path = directory + '/'+ setting +'_xModelAnswer.csv'
     
-    print('output path: {}'.format(output_path))
     # if os.path.exists(output_path):
     #     print('file exists, skip')
     # else:
-
-    print('Info: seting: {}, test_mode: {}, chunk_size: {}, chunk_overlap: {}, qa_model: {}, embedding_model: {}, new_method: {}, topk: {}'.format(setting, args.test, chunk_size, chunk_overlap, qa_model_name, embedding_model, new_method, topk))
-    print('Running retriever')
-    result_df = retrieve_only(data_path, 
-                cs=chunk_size, 
-                c_overlap=chunk_overlap, 
-                save_dir=None,
-                new_method=False,
-                embedding_model=embedding_model,
-                topk=topk,
-                test_mode=test,
-                random=rand)
-        # print('Created file with reference')
-    print('Running QA model')
-    run_RTR_Model(result_df, qa_model_name, batch_size=16, output_path=output_path, test_mode=test, use_cuda=True)
+    if new_method == 'True':
+        print('x', output_path)
+        print('Info: seting: {}, test_mode: {}, chunk_size: {}, chunk_overlap: {}, qa_model: {}, embedding_model: {}, new_method: {}, topk: {}'.format(setting, args.test, chunk_size, chunk_overlap, qa_model_name, embedding_model, new_method, topk))
+        print('Running retriever')
+        result_df = retrieve_only(data_path, 
+                    cs=chunk_size, 
+                    c_overlap=chunk_overlap, 
+                    save_dir=None,
+                    new_method=True,
+                    embedding_model=embedding_model,
+                    topk=topk,
+                    test_mode=test,
+                    random=rand)
+            # print('Created file with reference')
+        print('Running QA model')
+        run_RTR_Model(result_df, qa_model_name, batch_size=16, output_path=output_path, test_mode=test, use_cuda=True)
