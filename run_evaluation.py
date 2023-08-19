@@ -165,7 +165,7 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
 
     # for batch in dataloader:
     for batch in tqdm(dataloader, desc="Processing batches", unit="batch"):
-        cnt += len(batch)
+        # cnt += len(batch)
     #     # question,answer,model_answer,ref,retrived_doc,doc_id
         questions = batch['question']
         answers = batch['answer']
@@ -237,6 +237,7 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
         output_path = 'data/doc2dial/eval_test.csv'
         print('output save in : ', output_path)
     else:
+        # output_path = 'data/doc2dial/TEST/eval_test.csv'
         df.to_csv(output_path, index=False)
         print('output save in : ', output_path)
 
@@ -415,7 +416,11 @@ if __name__ == "__main__":
                     infer_one_att(file_path, output_path, batch_size=16)
                 elif '_new' in subfolder:
                     # print('subfolder: ', subfolder_path)
-                    # print('output_path: ', output_path)
+                    file_path = os.path.join(subfolder_path, subfolder + '_xModelAnswer.csv')
+                    if not os.path.exists(file_path):
+                        file_path = os.path.join(subfolder_path, 'checkpoint.csv')
+                    
+                    print('file_path: ', file_path)
                     infer_autoais(file_path, output_path, batch_size=16)
                 else:
                     continue

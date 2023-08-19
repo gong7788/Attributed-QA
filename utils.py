@@ -54,6 +54,9 @@ def extract_one_sentence(chunk, answer, method='BLEU'):
         
         chencherry = SmoothingFunction()
         for sentence in sentences:
+            if re.match(r'\d\.', sentence) is not None:
+                continue
+            
             sentence_tokens = nltk.word_tokenize(sentence)
             score = sentence_bleu([ref_tokens], sentence_tokens, smoothing_function=chencherry.method2)
             
