@@ -1,0 +1,9 @@
+name,Yes_model,No_model,not_answered,Yes_true,No_true,not_answered_true
+500_top1,205,42,55,193,54,59
+doc2dial_250_top5,318,40,1,310,52,7
+doc2dial_500_top5,402,46,0,370,51,2
+doc2dial_1000_top1_new,211,37,0,224,30,2
+doc2dial_250_top1,97,41,82,108,42,83
+doc2dial_1000_top1,290,52,28,277,63,29
+doc2dial_500_top1_new,350,57,1,330,47,1
+doc2dial_250_top1_new,288,61,1,245,50,5

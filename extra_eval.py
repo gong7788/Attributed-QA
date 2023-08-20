@@ -90,36 +90,36 @@ def compute_cos_sim(path, eval_file=None, **kwargs):
     chunk_size = kwargs.get('chunk_size', 10)
 
     total = 1000//chunk_size
-    # progress_bar = tqdm(total=total, desc="Processing Chunks")
+    progress_bar = tqdm(total=total, desc="Processing Chunks")
 
-    # cos_sim = pd.DataFrame(columns=['cos_sim', 'cos_sim_ans'])
+    cos_sim = pd.DataFrame(columns=['cos_sim', 'cos_sim_ans'])
 
-    # for chunk_df in pd.read_csv(path, chunksize=chunk_size):
-    #     true_answer = chunk_df['answer'].fillna('')
-    #     model_answer = chunk_df['model_answer'].fillna('')
-    #     true_ref_string_list = chunk_df['true_ref_str'].fillna('')
-    #     if att_mode:
-    #         pred_refs_list = chunk_df['attribution'].fillna('')
-    #     else:
-    #         pred_refs_list = chunk_df['retrived_doc'].fillna('')
+    for chunk_df in pd.read_csv(path, chunksize=chunk_size):
+        true_answer = chunk_df['answer'].fillna('')
+        model_answer = chunk_df['model_answer'].fillna('')
+        true_ref_string_list = chunk_df['true_ref_str'].fillna('')
+        if att_mode:
+            pred_refs_list = chunk_df['attribution'].fillna('')
+        else:
+            pred_refs_list = chunk_df['retrived_doc'].fillna('')
 
 
-    #     cos_sim_ref = cos_single(model, true_ref_string_list, pred_refs_list)
-    #     cos_sim_ans = cos_single(model, true_answer, model_answer)
+        cos_sim_ref = cos_single(model, true_ref_string_list, pred_refs_list)
+        cos_sim_ans = cos_single(model, true_answer, model_answer)
 
-    #     for i in range(len(cos_sim_ref)):
-    #         cos_sim.loc[len(cos_sim)] = [cos_sim_ref[i], cos_sim_ans[i]]
-    #     # cos_sim.loc[len(cos_sim)] = [cos_sim_ref, cos_sim_ans]
+        for i in range(len(cos_sim_ref)):
+            cos_sim.loc[len(cos_sim)] = [cos_sim_ref[i], cos_sim_ans[i]]
+        # cos_sim.loc[len(cos_sim)] = [cos_sim_ref, cos_sim_ans]
 
-    #     progress_bar.update(total//100)
-    #     # break
+        progress_bar.update(total//100)
+        # break
     
-    # progress_bar.close()
+    progress_bar.close()
 
 
     if att_mode:
         print('Saving to: ', output_path)
-        # cos_sim.to_csv(output_path, index=False)
+        cos_sim.to_csv(output_path, index=False)
     else:
         pass
         # cos_sim.to_csv(path.replace('eval.csv', 'cos_sim.csv'), index=False)
