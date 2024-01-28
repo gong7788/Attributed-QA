@@ -142,4 +142,5 @@ data/doc2dial/failed_doc_ids*.csv
 data/doc2dial/qa_train_dmv_withRefs.csv
 
 data/openqa/
+data/doc2dial
 /.vscode
