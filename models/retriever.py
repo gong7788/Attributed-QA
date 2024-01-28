@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 import ast
+import random as rd
 from langchain.docstore.document import Document
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
@@ -83,6 +84,10 @@ def retrieve_only(data_path, cs, c_overlap, save_dir, embedding_model='sentence-
     total_split_docs = 0
     cnt = 0
     data_max_len = kwargs.get('max_len', 1000)
+
+    random = kwargs.get('random', False)
+    rd.seed(42)
+
     failed_doc_ids = []
     doc2dial_doc = load_doc_file('data/doc2dial/doc2dial_doc.json')
     
@@ -110,19 +115,24 @@ def retrieve_only(data_path, cs, c_overlap, save_dir, embedding_model='sentence-
             last_doc_name = doc_name
 
         #seaerch doc
-        try:
-            result_docs = seaerch_doc(row, db) # list of retrieved documents
-        except:
-            # if question is Nan, skip
-            failed_doc_ids.append(index)
-            print('search failed at: ', index)
-        
+        if not random:
+            try:
+                result_docs = seaerch_doc(row, db) # list of retrieved documents
+            except:
+                # if question is Nan, skip
+                failed_doc_ids.append(index)
+                print('search failed at: ', index)
+        else:
+            result_docs = [rd.choice(split_documents)]
+
         if new_method and result_docs is not None:
             #find pre and next doc
             #now fix num to 1, otherwise may larger than max token length
             idx_list = find_pre_next_doc(split_documents, result_docs, num=1)
             result_docs = [split_documents[i] for i in idx_list]
             # if used new method, topk should not 1, but len(result_docs)
+            if random:
+                result_docs = [rd.choice(split_documents) for _ in range(len(result_docs))]
             topk = len(result_docs)
         # ref_list = evaluation.get_ref(row, doc2dial_doc) # true references
 

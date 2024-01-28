@@ -8,6 +8,7 @@ import torch.multiprocessing as mp
 import os
 import time
 import argparse
+from tqdm import tqdm
 from torch.utils.data import DataLoader
 from dataloader import doc2dialEvalDataset
 from configparser import ConfigParser
@@ -16,8 +17,8 @@ import evaluation
 from utils import timeit
 
 # failed_doc_ids = [645,1448,1523,1573,8159]
-AUTOAIS = "google/t5_xxl_true_nli_mixture"
-t5base = "google/flan-t5-base"
+# AUTOAIS = "google/t5_xxl_true_nli_mixture"
+AUTOAIS = "google/flan-t5-base"
 
 
 def read_data(data_paths):
@@ -128,8 +129,9 @@ def eval(df, qa_df, doc2dial_doc, test=False, test_num=1, eval_id=None):
 @timeit
 def infer_autoais(path, output_path, batch_size, *args, **kwargs):
     # check path form
-    if not path.endswith('_withModelAnswer.csv'):
+    if not path.endswith('_withModelAnswer.csv') and not path.endswith('_ModelAnswer.csv'):
         raise ValueError('File path is not correct')
+    
     if not os.path.exists(path):
         raise ValueError('File path does not exist')
     
@@ -145,6 +147,7 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
 
     df = pd.DataFrame(columns=['question', 'answer', 'model_answer', 'true_ref_str', 'retrived_doc', 'answer_f1', 'answer_prec', 'answer_recall', 'autoais_retrevied(model_answer)', 'att_f1', 'att_prec', 'att_recall', 'autoais_true_answer', 'ref_range'])
 
+    print('AUTOAIS: ', AUTOAIS)
     tokenizer = T5Tokenizer.from_pretrained(AUTOAIS, legacy=False)
     model = T5ForConditionalGeneration.from_pretrained(AUTOAIS)
     print('model loaded')
@@ -159,7 +162,8 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
     # true_ref_range = first_batch['true_ref_position']
     # retrieved_doc_range = first_batch['retrieved_doc_position']
 
-    for batch in dataloader:
+    # for batch in dataloader:
+    for batch in tqdm(dataloader, desc="Processing batches", unit="batch"):
         cnt += len(batch)
     #     # question,answer,model_answer,ref,retrived_doc,doc_id
         questions = batch['question']
@@ -181,7 +185,7 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
                 ans_prec.append(prec)
                 ans_recall.append(recall)
             except:
-                print('cnt: ', i)
+                # print('cnt: ', i)
                 ans_f1.append(0)
                 ans_prec.append(0)
                 ans_recall.append(0)
@@ -196,7 +200,7 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
                 att_prec.append(prec)
                 att_recall.append(recall)
             except:
-                print('cnt: ', i)
+                # print('cnt: ', i)
                 att_f1.append(0)
                 att_prec.append(0)
                 att_recall.append(0)
@@ -223,10 +227,10 @@ def infer_autoais(path, output_path, batch_size, *args, **kwargs):
                                 true_ref_range[i]]
         
         #save checkpoint
-        if 'top5' in output_path and cnt % 200 == 0 and cnt != 0:
-            checkpoint = output_path.replace('eval', 'checkpoint')
-            df.to_csv(checkpoint, index=False)
-            print('checkpoint saved at: ', cnt)
+        # if 'top5' in output_path and cnt % 200 == 0 and cnt != 0:
+        #     checkpoint = output_path.replace('eval', 'checkpoint')
+        #     df.to_csv(checkpoint, index=False)
+        #     print('checkpoint saved at: ', cnt)
 
     if test_mode:
         output_path = 'data/doc2dial/eval_test.csv'
@@ -245,7 +249,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', type=str, default='DEFAULT', help='load config settings')
-    parser.add_argument('--path', type=str, help='path to model folder')
+    # parser.add_argument('--path', type=str, help='path to model folder')
     parser.add_argument('-t', '--test', action='store_true', help='run in test mode')
 
     args = parser.parse_args()
@@ -269,6 +273,9 @@ if __name__ == "__main__":
         print('target_folder: ', path)
 
         for subfolder in os.listdir(path):
+            if not os.path.isdir(os.path.join(path, subfolder)):
+                continue
+
             subfolder_path = os.path.join(path, subfolder)
             file_name = subfolder + '_withModelAnswer.csv'
             eval_file = 'eval.csv'
@@ -276,8 +283,14 @@ if __name__ == "__main__":
             eval_path = os.path.join(subfolder_path, eval_file)
             # Check if the file exists
             if not os.path.exists(file_path):
-                print('File does not exist: ', file_path)
-            elif os.path.exists(eval_path):
+                # print('File does not exist: ', file_path)
+                try:
+                    file_name = subfolder + '_ModelAnswer.csv'
+                    file_path = os.path.join(subfolder_path, file_name)
+                except:
+                    print('File does not exist: ', file_path)
+
+            if os.path.exists(eval_path):
                 print('Eval file exists: ', eval_path)
             else:
                 if setting == 'DEFAULT' and subfolder == 'doc2dial_1000_top1':
@@ -309,7 +322,7 @@ if __name__ == "__main__":
                 else:
                     # record current time 
                     print('Subfolder: ', subfolder)
-                    infer_autoais(file_path, output_path, batch_size=8)
+                    infer_autoais(file_path, output_path, batch_size=16)
 
 
   
